@@ -1,0 +1,22 @@
+{
+  "name": "ReviseIQ",
+  "short_name": "ReviseIQ",
+  "description": "A calm revision workspace: notes, flashcards and exam countdowns that work offline.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FAF9F6",
+  "theme_color": "#FAF9F6",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "/assets/logo-128.png", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/logo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/assets/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ],
+  "shortcuts": [
+    { "name": "Today", "short_name": "Today", "url": "/?view=today" },
+    { "name": "Revise now", "short_name": "Revise", "url": "/?view=revise" }
+  ]
+}

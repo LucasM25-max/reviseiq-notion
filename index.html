@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>ReviseIQ</title>
 <meta name="description" content="ReviseIQ — a calm, Notion-style revision workspace for GCSE subjects, notes and exam countdowns." />
 <meta name="theme-color" content="#FAF9F6" />
@@ -18,10 +18,29 @@
 <link rel="stylesheet" href="/styles/toc.css" />
 <link rel="stylesheet" href="/styles/revise.css" />
 <link rel="stylesheet" href="/styles/today.css" />
+<link rel="stylesheet" href="/styles/mobile.css" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="ReviseIQ" />
+<meta name="mobile-web-app-capable" content="yes" />
 </head>
 <body>
 <div id="app">
-  <div class="sidebar">
+  <div class="mobile-bar" id="mobile-bar">
+    <button class="mobile-bar-btn" id="mobile-menu-btn" aria-label="Open menu">
+      <svg class="ui-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+    <div class="mobile-bar-title"><img src="/assets/logo-128.png" alt="" width="22" height="22" /> ReviseIQ</div>
+    <button class="mobile-bar-btn" id="mobile-today-btn" aria-label="Today">
+      <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="4.4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
+    </button>
+    <button class="mobile-bar-btn" id="mobile-revise-btn" aria-label="Revise">
+      <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="14" height="11" rx="2"/><path d="M7 3.8h11.5A2.5 2.5 0 0 1 21 6.3v10"/><path d="M7.5 10.5h5M7.5 13.5h3"/></svg>
+      <span class="due-pill" id="due-pill-mobile" hidden>0</span>
+    </button>
+  </div>
+  <div class="sidebar" id="sidebar">
     <div class="brand">
       <div class="brand-mark"><img src="/assets/logo-128.png" alt="ReviseIQ" width="26" height="26" /></div>
       <div class="brand-name">ReviseIQ</div>
@@ -67,6 +86,7 @@
   </div>
   <aside class="toc-rail" id="toc-rail" aria-label="Table of contents"></aside>
 </div>
+<div class="sidebar-scrim" id="sidebar-scrim"></div>
 <div id="overlay-root"></div>
 <script type="module" src="/src/main.js"></script>
 </body>

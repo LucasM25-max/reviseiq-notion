@@ -45,11 +45,4 @@ a{color:var(--accent);}
 ::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:6px;}
 ::-webkit-scrollbar-track{background:transparent;}
 
-@media (max-width: 720px){
-  #app{flex-direction:column;height:auto;min-height:100vh;overflow:auto;}
-  .sidebar{width:100%;height:auto;border-right:none;border-bottom:1px solid var(--border);}
-  .sidebar-scroll{max-height:240px;}
-  .main-inner{padding:28px 20px 160px 20px;}
-  .block-row{margin-left:0;}
-  .block-controls{display:none;}
-}
+/* Small-screen rules live in styles/mobile.css, which owns the drawer layout. */

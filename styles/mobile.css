@@ -1,0 +1,360 @@
+/* ---------------------------------------------------------------
+   Mobile / touch layout.
+
+   Everything above 860px is unchanged. Below that the sidebar turns
+   into a drawer, the contents rail becomes a scrolling chip bar above
+   the page, hover-only controls become permanently visible, and the
+   revise session gets thumb-sized grade buttons.
+   --------------------------------------------------------------- */
+
+/* Top bar: hidden on desktop, sticky header on small screens. */
+.mobile-bar {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  height: 54px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  padding-top: env(safe-area-inset-top);
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--border);
+  z-index: 40;
+}
+.mobile-bar-btn {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: var(--radius-s);
+  color: var(--text-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mobile-bar-btn:active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.mobile-bar-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+}
+.mobile-bar-title img {
+  width: 22px;
+  height: 22px;
+}
+.mobile-bar .due-pill {
+  position: absolute;
+  transform: translate(13px, -13px);
+}
+
+.sidebar-scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 42, 38, 0.4);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  z-index: 55;
+}
+
+@media (max-width: 860px) {
+  #app {
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .mobile-bar {
+    display: flex;
+  }
+
+  /* ---- sidebar becomes a slide-in drawer ---- */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 84vw;
+    max-width: 310px;
+    height: 100%;
+    z-index: 60;
+    border-right: 1px solid var(--border);
+    box-shadow: var(--shadow-m);
+    transform: translateX(-102%);
+    transition: transform 0.22s ease;
+    padding-top: env(safe-area-inset-top);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-scrim {
+    display: block;
+    pointer-events: none;
+  }
+  .sidebar-scrim.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Touch targets in the tree need more height than the mouse version. */
+  .tree-row {
+    padding: 9px 6px;
+  }
+  .tree-actions,
+  .tree-row .tree-add,
+  .tree-row .tree-del {
+    opacity: 1;
+  }
+  .calendar-nav-btn {
+    padding: 10px 8px;
+    font-size: 14.5px;
+  }
+
+  /* ---- main column ---- */
+  .main {
+    flex: 1;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  .main-inner {
+    max-width: none;
+    padding: 20px 16px calc(150px + env(safe-area-inset-bottom)) 16px;
+  }
+  .breadcrumbs {
+    margin-bottom: 14px;
+  }
+  .page-title {
+    font-size: 27px;
+  }
+  .page-icon-btn {
+    font-size: 34px;
+  }
+  .page-icon-btn img {
+    width: 34px;
+    height: 34px;
+  }
+  .meta-panel {
+    padding: 13px;
+  }
+  .meta-row {
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .meta-label {
+    width: auto;
+  }
+
+  /* ---- blocks: no hover on touch, so controls stay visible ---- */
+  .block-row {
+    margin-left: 0;
+    padding-left: 0;
+  }
+  .block-row > .block-controls {
+    opacity: 0.5;
+    width: 30px;
+    position: sticky;
+    left: 0;
+  }
+  .block-ctrl-btn {
+    width: 26px;
+    height: 30px;
+  }
+  .block-ctrl-btn.handle {
+    display: none; /* dragging is a pointer gesture; hide the affordance */
+  }
+  .rt {
+    font-size: 16px; /* stops iOS zooming in when focusing a field */
+  }
+  .b-h1 {
+    font-size: 23px;
+  }
+  .b-h2 {
+    font-size: 19.5px;
+  }
+  select,
+  input[type="text"],
+  input[type="date"],
+  textarea {
+    font-size: 16px;
+  }
+  input.board-other {
+    width: 100%;
+  }
+  .exam-form input[type="text"] {
+    width: 100%;
+  }
+  table.b-table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  /* ---- contents rail turns into a scrolling chip bar above the page ---- */
+  .toc-rail {
+    position: static;
+    order: -1;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    padding: 8px 12px;
+    border-left: none;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-soft);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .toc-rail.has-items {
+    display: block;
+  }
+  .toc-label {
+    display: none;
+  }
+  .toc-items {
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .toc-items::-webkit-scrollbar {
+    display: none;
+  }
+  .toc-item {
+    width: auto;
+    flex: 0 0 auto;
+    max-width: 190px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    border-radius: 999px;
+    padding: 5px 12px;
+  }
+  .toc-item.lvl-2,
+  .toc-item.lvl-3 {
+    padding-left: 12px;
+  }
+  .toc-item .toc-dash {
+    display: none;
+  }
+  .toc-item.active {
+    border-color: var(--accent-2);
+    background: var(--accent-softer);
+  }
+
+  /* ---- floating UI must fit the viewport ---- */
+  .float-menu,
+  .ctx-menu,
+  .icon-popover {
+    max-width: 92vw;
+  }
+  .rt-toolbar {
+    max-width: 94vw;
+    flex-wrap: wrap;
+  }
+  .modal-card {
+    width: 92vw;
+  }
+
+  /* ---- revise session: thumb-friendly ---- */
+  .revise-shell {
+    padding: 16px 14px calc(30px + env(safe-area-inset-bottom)) 14px;
+  }
+  .revise-card {
+    padding: 22px 18px 20px 18px;
+    touch-action: pan-y;
+  }
+  .revise-question {
+    font-size: 21px;
+  }
+  .revise-reveal {
+    padding: 16px;
+    font-size: 15px;
+  }
+  .revise-grades {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg);
+    padding: 10px 0 calc(6px + env(safe-area-inset-bottom)) 0;
+    gap: 8px;
+  }
+  .revise-grade {
+    padding: 15px 6px;
+  }
+  .revise-kbd {
+    display: none;
+  }
+  /* Swap the keyboard hint for a touch hint. */
+  .revise-hint {
+    font-size: 0;
+  }
+  .revise-hint::after {
+    content: "Swipe right if you knew it, left to see it again";
+    font-size: 12.5px;
+    color: var(--text-faint);
+  }
+
+  /* ---- today dashboard ---- */
+  .today-strip {
+    gap: 8px;
+  }
+  .plan-row,
+  .shaky-row,
+  .gap-row {
+    padding: 13px 12px;
+  }
+
+  .full-banner {
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    max-width: 92vw;
+    text-align: center;
+  }
+}
+
+/* Card drag feedback while swiping through flashcards. */
+.revise-card.swiping {
+  transition: none;
+}
+.revise-card.swipe-out-left,
+.revise-card.swipe-out-right {
+  transition: transform 0.16s ease, opacity 0.16s ease;
+  opacity: 0;
+}
+.revise-card.swipe-out-left {
+  transform: translateX(-60%) rotate(-4deg);
+}
+.revise-card.swipe-out-right {
+  transform: translateX(60%) rotate(4deg);
+}
+
+/* Offline / update notice shared by the service worker hooks. */
+.pwa-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--text);
+  color: #f6f4ee;
+  border-radius: 999px;
+  padding: 9px 10px 9px 18px;
+  font-size: 13px;
+  box-shadow: var(--shadow-m);
+  max-width: 92vw;
+}
+.pwa-toast button {
+  border: none;
+  background: var(--accent-2);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12.5px;
+  border-radius: 999px;
+  padding: 6px 14px;
+}

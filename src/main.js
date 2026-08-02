@@ -6,8 +6,10 @@ import { renderMain } from "./render/main.js";
 import { initGlobalDismiss, setRerenderMain } from "./overlays.js";
 import { initMainEvents } from "./events/mainEvents.js";
 import { initSidebarEvents } from "./events/sidebarEvents.js";
-import { setReviseCloseHandler } from "./render/revise.js";
-import { navigateTo } from "./pages.js";
+import { setReviseCloseHandler, startRevise } from "./render/revise.js";
+import { navigateTo, openTodayView } from "./pages.js";
+import { initMobileEvents } from "./events/mobileEvents.js";
+import { registerServiceWorker, initConnectivityNotices } from "./pwa.js";
 
 function boot() {
   setRerenderMain(renderMain);
@@ -22,6 +24,9 @@ function boot() {
   initGlobalDismiss();
   initMainEvents();
   initSidebarEvents();
+  initMobileEvents();
+  initConnectivityNotices();
+  registerServiceWorker();
 
   loadState();
 
@@ -33,6 +38,16 @@ function boot() {
 
   renderSidebar();
   renderMain();
+  applyLaunchShortcut();
+}
+
+/* Home-screen shortcuts land on /?view=today or /?view=revise. */
+function applyLaunchShortcut() {
+  const view = new URLSearchParams(location.search).get("view");
+  if (!view) return;
+  history.replaceState(null, "", location.pathname);
+  if (view === "today") openTodayView();
+  else if (view === "revise") startRevise({ type: "all" });
 }
 
 if (document.readyState === "loading") {

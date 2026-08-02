@@ -54,7 +54,75 @@ export function startRevise(scope, mode) {
     } else grade(act);
   });
 
+  attachSwipe(overlay);
   paint();
+}
+
+/*
+ * Touch gestures for phone use:
+ *   swipe up/down is left alone (scrolling long answers)
+ *   swipe right  -> reveal, then grade "good"
+ *   swipe left   -> reveal, then grade "again"
+ * The card follows the finger so the gesture is discoverable.
+ */
+function attachSwipe(overlay) {
+  let startX = 0;
+  let startY = 0;
+  let card = null;
+  let tracking = false;
+
+  overlay.addEventListener(
+    "touchstart",
+    (e) => {
+      if (!session || e.touches.length !== 1) return;
+      card = e.target.closest(".revise-card");
+      if (!card) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      tracking = true;
+    },
+    { passive: true }
+  );
+
+  overlay.addEventListener(
+    "touchmove",
+    (e) => {
+      if (!tracking || !card) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (Math.abs(dy) > Math.abs(dx)) return; // let the page scroll
+      card.classList.add("swiping");
+      card.style.transform = "translateX(" + dx * 0.5 + "px) rotate(" + dx * 0.012 + "deg)";
+    },
+    { passive: true }
+  );
+
+  const finish = (e) => {
+    if (!tracking || !card) return;
+    const t = e.changedTouches ? e.changedTouches[0] : null;
+    const dx = t ? t.clientX - startX : 0;
+    const dy = t ? Math.abs(t.clientY - startY) : 0;
+    card.classList.remove("swiping");
+    card.style.transform = "";
+    tracking = false;
+    if (!session || dy > 70 || Math.abs(dx) < 70) {
+      card = null;
+      return;
+    }
+    const right = dx > 0;
+    card.classList.add(right ? "swipe-out-right" : "swipe-out-left");
+    card = null;
+    // A swipe on a hidden answer just reveals it; you should never grade a
+    // card you have not looked at.
+    if (!session.revealed) {
+      reveal();
+      return;
+    }
+    grade(right ? "good" : "again");
+  };
+
+  overlay.addEventListener("touchend", finish, { passive: true });
+  overlay.addEventListener("touchcancel", finish, { passive: true });
 }
 
 export function closeRevise(navigateToPageId) {

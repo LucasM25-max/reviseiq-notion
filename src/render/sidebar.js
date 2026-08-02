@@ -44,8 +44,18 @@ export function renderNextExamBanner() {
     "</span></div></div>";
 }
 
+/* The same due count, mirrored onto the mobile top bar's revise button. */
+function renderMobileDuePill() {
+  const pill = document.getElementById("due-pill-mobile");
+  if (!pill) return;
+  const due = countDueEverywhere();
+  pill.hidden = due === 0;
+  pill.textContent = due > 99 ? "99+" : String(due);
+}
+
 /* Shows how many flashcards are waiting for review today. */
 export function renderDuePill() {
+  renderMobileDuePill();
   const pill = document.getElementById("due-pill");
   if (!pill) return;
   const due = countDueEverywhere();
