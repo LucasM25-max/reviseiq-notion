@@ -1,10 +1,12 @@
-// Main panel rendering: breadcrumbs, header, exam panel, subpages, blocks.
-import { store, getPage, getChildren, getAncestors, findPageBlockRef } from "../state.js";
+// Main panel rendering: breadcrumbs, header, exam panel, blocks.
+// Subpages are not listed separately — they appear inline as page blocks.
+import { store, getPage } from "../state.js";
 import { escapeHtml, formatDateHuman, countdownInfo } from "../utils.js";
 import { renderBlocksList } from "./blocks.js";
 import { renderCalendarView } from "./calendar.js";
 import { renderToc } from "./toc.js";
 import { iconImg, ui } from "../icons.js";
+import { cardsForPage, isDue } from "../srs.js";
 
 export function renderMain() {
   const root = document.getElementById("main-inner");
@@ -26,12 +28,11 @@ export function renderMain() {
   let html = renderBreadcrumbs(page);
   html += renderPageHeader(page);
   if (page.type === "subject") html += renderExamPanel(page);
-  html += renderSubpagesList(page);
+  html += renderPageActions(page);
   html += '<div class="block-list" id="block-list" data-page-id="' + page.id + '">' + renderBlocksList(page.blocks) + "</div>";
-  html +=
-    '<div class="add-block-row"><div class="add-block-ghost" id="add-block-ghost">' +
-    ui("plus", 14, 2.2) +
-    " Click to add a block, or type / for commands</div></div>";
+  // Invisible click target: clicking the space under the last block starts a
+  // new paragraph, without adding another visible "add a block" row.
+  html += '<div class="page-tail" id="page-tail"></div>';
   root.innerHTML = html;
   root.scrollTop = 0;
   document.getElementById("main").scrollTop = 0;
@@ -51,8 +52,37 @@ export function renderEmptyState() {
   );
 }
 
+/* Revise entry point for the current page and everything nested under it. */
+export function renderPageActions(page) {
+  const cards = cardsForPage(page.id);
+  if (!cards.length) return "";
+  const due = cards.filter((c) => isDue(c.id)).length;
+  const quiet = due === 0;
+  return (
+    '<div class="page-actions">' +
+    '<button class="btn-revise' +
+    (quiet ? " is-quiet" : "") +
+    '" id="revise-page-btn" data-page-id="' +
+    page.id +
+    '" title="Test yourself on the flashcards in this section">' +
+    ui("flashcard", 15) +
+    (quiet ? "<span>Revise" : "<span>Revise now") +
+    "</span>" +
+    '<span class="revise-badge">' +
+    (due > 0 ? due + " due" : cards.length + " card" + (cards.length === 1 ? "" : "s")) +
+    "</span>" +
+    "</button>" +
+    "</div>"
+  );
+}
+
 export function renderBreadcrumbs(page) {
-  const chain = getAncestors(page.id);
+  const chain = [];
+  let cur = page;
+  while (cur && cur.parentId) {
+    cur = getPage(cur.parentId);
+    if (cur) chain.unshift(cur);
+  }
   let html = '<div class="breadcrumbs">';
   chain.forEach((p) => {
     html +=
@@ -128,34 +158,5 @@ export function renderExamPanel(page) {
   });
   html += '<button class="add-exam-btn" id="add-exam-btn">' + ui("plus", 12, 2.4) + " Add exam date</button>";
   html += "</div></div></div></div>";
-  return html;
-}
-
-/*
- * Subpages that already appear inline as a page block in the body are skipped
- * here, so a nested page is only ever listed once.
- */
-export function renderSubpagesList(page) {
-  const kids = getChildren(page.id).filter((k) => !findPageBlockRef(page, k.id));
-  if (kids.length === 0) return "";
-  let html = '<div class="subpages-list">';
-  kids.forEach((k) => {
-    const n = getChildren(k.id).length;
-    html +=
-      '<div class="subpage-row" data-nav="' +
-      k.id +
-      '"><span class="icon">' +
-      iconImg(k.icon, 18) +
-      '</span><span class="title">' +
-      escapeHtml(k.title || "Untitled") +
-      "</span>" +
-      (n > 0 ? '<span class="sub">' + n + " subpage" + (n > 1 ? "s" : "") + "</span>" : "") +
-      '<button class="del" data-del-page="' +
-      k.id +
-      '" title="Delete page">' +
-      ui("trash", 14) +
-      "</button></div>";
-  });
-  html += "</div>";
   return html;
 }

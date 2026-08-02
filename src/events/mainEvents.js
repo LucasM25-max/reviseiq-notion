@@ -23,6 +23,7 @@ import {
   maybeShowToolbar,
   removeToolbar
 } from "../overlays.js";
+import { startRevise } from "../render/revise.js";
 import {
   navigateTo,
   deletePage,
@@ -95,14 +96,26 @@ export function initMainEvents() {
       return;
     }
 
-    if (e.target.closest("#add-block-ghost")) {
-      const lastId = page.blocks.length ? page.blocks[page.blocks.length - 1].id : null;
+    // Clicking the empty space under the last block starts a new paragraph,
+    // so no permanent "add a block" row is needed.
+    if (e.target.closest("#page-tail")) {
+      const last = page.blocks[page.blocks.length - 1];
+      if (last && last.type === "paragraph" && !(last.content || "").trim()) {
+        focusBlock(last.id, true);
+        return;
+      }
       const nb2 = newBlock("paragraph");
-      if (lastId) insertBlockAfter(page, lastId, nb2);
+      if (last) insertBlockAfter(page, last.id, nb2);
       else page.blocks.push(nb2);
       renderMain();
       focusBlock(nb2.id, true);
       scheduleSave();
+      return;
+    }
+
+    const reviseBtn = e.target.closest("#revise-page-btn");
+    if (reviseBtn) {
+      startRevise({ type: "page", pageId: reviseBtn.dataset.pageId });
       return;
     }
 

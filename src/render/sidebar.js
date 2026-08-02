@@ -3,11 +3,13 @@ import { store, getPage, getChildren } from "../state.js";
 import { escapeHtml, formatDateHuman, countdownInfo } from "../utils.js";
 import { computeNextExam } from "../exams.js";
 import { iconImg, ui } from "../icons.js";
+import { countDueEverywhere } from "../srs.js";
 
 export function renderSidebar() {
   renderNextExamBanner();
   const calBtn = document.getElementById("calendar-nav-btn");
   if (calBtn) calBtn.classList.toggle("active", store.currentView === "calendar");
+  renderDuePill();
   const tree = document.getElementById("sidebar-tree");
   let html = "";
   store.state.rootPageIds.forEach((id) => {
@@ -38,6 +40,16 @@ export function renderNextExamBanner() {
     ' \u00B7 <span style="color:var(--accent);font-weight:600;">' +
     ci.label +
     "</span></div></div>";
+}
+
+/* Shows how many flashcards are waiting for review today. */
+export function renderDuePill() {
+  const pill = document.getElementById("due-pill");
+  if (!pill) return;
+  const due = countDueEverywhere();
+  pill.hidden = due === 0;
+  pill.textContent = String(due);
+  pill.title = due + " flashcard" + (due === 1 ? "" : "s") + " due today";
 }
 
 function renderSidebarNode(pageId, depth) {

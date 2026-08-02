@@ -6,9 +6,19 @@ import { renderMain } from "./render/main.js";
 import { initGlobalDismiss, setRerenderMain } from "./overlays.js";
 import { initMainEvents } from "./events/mainEvents.js";
 import { initSidebarEvents } from "./events/sidebarEvents.js";
+import { setReviseCloseHandler } from "./render/revise.js";
+import { navigateTo } from "./pages.js";
 
 function boot() {
   setRerenderMain(renderMain);
+  setReviseCloseHandler((pageId) => {
+    if (pageId && getPage(pageId)) {
+      navigateTo(pageId);
+      return;
+    }
+    renderSidebar();
+    renderMain();
+  });
   initGlobalDismiss();
   initMainEvents();
   initSidebarEvents();

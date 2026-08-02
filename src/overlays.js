@@ -4,7 +4,7 @@ import { store, getPage, findBlockById, findContainer } from "./state.js";
 import { newPageObject } from "./model.js";
 import { escapeHtml, uid } from "./utils.js";
 import { ICON_KEYS, CALLOUT_ICON_KEYS, iconImg, ui } from "./icons.js";
-import { BLOCK_TYPES } from "./blockTypes.js";
+import { BLOCK_TYPES, matchBlockTypes } from "./blockTypes.js";
 import { updateBlockField, convertBlockType, duplicateBlock, deleteBlockById } from "./blocks.js";
 import { scheduleSave } from "./storage.js";
 import { focusBlock } from "./focus.js";
@@ -215,7 +215,7 @@ function showLinkPopover(anchorEl, targetEl) {
 /* ---------- slash menu ---------- */
 
 export function showSlashMenu(blockEl, blockId, query) {
-  const filtered = BLOCK_TYPES.filter((bt) => bt.title.toLowerCase().indexOf((query || "").toLowerCase()) > -1);
+  const filtered = matchBlockTypes(query);
   const existing = document.getElementById("slash-menu");
   let selIndex = existing ? parseInt(existing.dataset.sel || "0", 10) : 0;
   if (selIndex >= filtered.length) selIndex = 0;

@@ -75,7 +75,7 @@ export function newPageObject(opts) {
 }
 
 export function createDefaultState() {
-  return { pages: {}, rootPageIds: [], activePageId: null, expanded: {} };
+  return { pages: {}, rootPageIds: [], activePageId: null, expanded: {}, srs: {} };
 }
 
 /* Older saves stored emoji icons; convert them to the custom icon set. */
@@ -88,6 +88,43 @@ function migrateBlockIcons(blocks) {
   });
 }
 
+function collectLinkedChildIds(blocks, set) {
+  if (!Array.isArray(blocks)) return;
+  blocks.forEach((b) => {
+    if (!b || typeof b !== "object") return;
+    if (b.type === "page" && b.childPageId) set.add(b.childPageId);
+    if (b.type === "toggle") collectLinkedChildIds(b.children, set);
+  });
+}
+
+/*
+ * Subpages are now shown only as inline page blocks, so every child page must
+ * have a block in its parent. Older saves (and pages created before this
+ * change) can be missing one — append it so nothing becomes unreachable.
+ */
+function ensureInlineSubpages(pages) {
+  const linkedByParent = {};
+  for (const id in pages) {
+    const set = new Set();
+    collectLinkedChildIds(pages[id].blocks, set);
+    linkedByParent[id] = set;
+  }
+  const orphans = {};
+  for (const id in pages) {
+    const p = pages[id];
+    if (!p.parentId || !pages[p.parentId]) continue;
+    if (linkedByParent[p.parentId] && linkedByParent[p.parentId].has(id)) continue;
+    (orphans[p.parentId] = orphans[p.parentId] || []).push(p);
+  }
+  for (const parentId in orphans) {
+    orphans[parentId]
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+      .forEach((child) => {
+        pages[parentId].blocks.push({ id: uid(), type: "page", childPageId: child.id });
+      });
+  }
+}
+
 export function normalizeState(obj) {
   const s = createDefaultState();
   try {
@@ -96,6 +133,7 @@ export function normalizeState(obj) {
       if (Array.isArray(obj.rootPageIds)) s.rootPageIds = obj.rootPageIds;
       if (typeof obj.activePageId === "string") s.activePageId = obj.activePageId;
       if (obj.expanded && typeof obj.expanded === "object") s.expanded = obj.expanded;
+      if (obj.srs && typeof obj.srs === "object") s.srs = obj.srs;
     }
   } catch (e) {
     /* ignore malformed input */
@@ -110,5 +148,6 @@ export function normalizeState(obj) {
     );
     migrateBlockIcons(p.blocks);
   }
+  ensureInlineSubpages(s.pages);
   return s;
 }

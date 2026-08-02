@@ -97,7 +97,7 @@ export function renderBlock(block, numberIndex) {
         '">' +
         ui("chevron", 12, 2.6) +
         "</div>" +
-        '<div class="rt" contenteditable="true" data-placeholder="Toggle" style="flex:1;font-weight:600;">' +
+        '<div class="rt" contenteditable="true" data-placeholder="Flashcard question" style="flex:1;font-weight:600;">' +
         block.summary +
         "</div></div>" +
         (block.collapsed
@@ -106,11 +106,14 @@ export function renderBlock(block, numberIndex) {
             block.id +
             '">' +
             renderBlocksList(block.children) +
-            '<div class="add-block-row"><div class="add-block-ghost" data-add-in-toggle="' +
-            block.id +
-            '">' +
-            ui("plus", 13, 2.2) +
-            " Add a block inside</div></div></div>");
+            (block.children && block.children.length
+              ? ""
+              : '<div class="add-block-row"><div class="add-block-ghost" data-add-in-toggle="' +
+                block.id +
+                '">' +
+                ui("plus", 13, 2.2) +
+                " Write the answer</div></div>") +
+            "</div>");
       break;
     case "image":
       inner = renderImageBlock(block);
