@@ -1,12 +1,16 @@
 // The "Exam calendar" view: hero countdown plus upcoming / past exam lists.
 import { escapeHtml, formatDateHuman, countdownInfo } from "../utils.js";
 import { computeNextExam, computeAllExamRows } from "../exams.js";
+import { iconImg, ui } from "../icons.js";
 
 export function renderCalendarView() {
   const next = computeNextExam();
   const { upcoming, past } = computeAllExamRows();
 
-  let html = '<div class="breadcrumbs"><span class="crumb current">\uD83D\uDCC5 Exam calendar</span></div>';
+  let html =
+    '<div class="breadcrumbs"><span class="crumb current">' +
+    iconImg("calendar", 14) +
+    '<span class="crumb-text">Exam calendar</span></span></div>';
   html += '<div class="page-header"><div class="page-title">Exam calendar</div></div>';
 
   if (next) {
@@ -31,14 +35,15 @@ export function renderCalendarView() {
 
   html += '<div class="cal-section-label">Upcoming</div>';
   if (upcoming.length === 0) {
-    html += '<div class="cal-list"><div class="cal-row" style="cursor:default;"><div class="cal-info"><div class="cal-subject">Nothing scheduled.</div></div></div></div>';
+    html +=
+      '<div class="cal-list"><div class="cal-row" style="cursor:default;"><div class="cal-info"><div class="cal-subject">Nothing scheduled.</div></div></div></div>';
   } else {
-    html += '<div class="cal-list">' + upcoming.map((r, i) => renderCalRow(r, i + 1, false)).join("") + "</div>";
+    html += '<div class="cal-list">' + upcoming.map((r, i) => renderCalRow(r, String(i + 1), false)).join("") + "</div>";
   }
 
   if (past.length > 0) {
     html += '<div class="cal-section-label">Past</div>';
-    html += '<div class="cal-list">' + past.map((r) => renderCalRow(r, "\u2713", true)).join("") + "</div>";
+    html += '<div class="cal-list">' + past.map((r) => renderCalRow(r, ui("check", 12, 2.6), true)).join("") + "</div>";
   }
 
   return html;
@@ -56,7 +61,7 @@ function renderCalRow(row, rank, isPast) {
     rank +
     "</div>" +
     '<div class="cal-icon">' +
-    row.subjectIcon +
+    iconImg(row.subjectIcon, 19) +
     "</div>" +
     '<div class="cal-info"><div class="cal-name">' +
     escapeHtml(row.name) +

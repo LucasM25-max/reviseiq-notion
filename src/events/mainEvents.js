@@ -277,8 +277,8 @@ export function initMainEvents() {
     if (t.id === "page-title") {
       renamePage(page.id, t.textContent);
       renderSidebar();
-      const curCrumb = mainInner.querySelector(".crumb.current");
-      if (curCrumb) curCrumb.textContent = page.icon + " " + (t.textContent || "Untitled");
+      const curCrumb = mainInner.querySelector(".crumb.current .crumb-text");
+      if (curCrumb) curCrumb.textContent = t.textContent || "Untitled";
       return;
     }
     if (t.classList.contains("board-other")) return;

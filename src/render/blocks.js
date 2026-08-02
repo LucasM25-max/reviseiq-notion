@@ -1,6 +1,7 @@
 // Pure HTML rendering for blocks.
 import { escapeHtml } from "../utils.js";
 import { getPage, getChildren } from "../state.js";
+import { iconImg, ui, DEFAULT_CALLOUT_ICON } from "../icons.js";
 
 export function renderBlocksList(blocks) {
   let html = "";
@@ -52,7 +53,7 @@ export function renderBlock(block, numberIndex) {
         '" data-todo-check="' +
         block.id +
         '">' +
-        (block.checked ? "\u2713" : "") +
+        (block.checked ? ui("check", 11, 3) : "") +
         '</div><div class="rt todo-text' +
         (block.checked ? " checked" : "") +
         '" contenteditable="true" data-placeholder="To-do" style="flex:1;">' +
@@ -61,11 +62,11 @@ export function renderBlock(block, numberIndex) {
       break;
     case "callout":
       inner =
-        '<div class="b-callout"><div class="callout-icon" data-callout-icon="' +
+        '<div class="b-callout"><button type="button" class="callout-icon" data-callout-icon="' +
         block.id +
-        '">' +
-        block.icon +
-        '</div><div class="rt" contenteditable="true" data-placeholder="Note it down..." style="flex:1;">' +
+        '" title="Change icon">' +
+        iconImg(block.icon, 19, "", DEFAULT_CALLOUT_ICON) +
+        '</button><div class="rt" contenteditable="true" data-placeholder="Note it down..." style="flex:1;">' +
         block.content +
         "</div></div>";
       break;
@@ -93,7 +94,9 @@ export function renderBlock(block, numberIndex) {
         (block.collapsed ? " collapsed" : "") +
         '" data-toggle-arrow="' +
         block.id +
-        '"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg></div>' +
+        '">' +
+        ui("chevron", 12, 2.6) +
+        "</div>" +
         '<div class="rt" contenteditable="true" data-placeholder="Toggle" style="flex:1;font-weight:600;">' +
         block.summary +
         "</div></div>" +
@@ -105,7 +108,9 @@ export function renderBlock(block, numberIndex) {
             renderBlocksList(block.children) +
             '<div class="add-block-row"><div class="add-block-ghost" data-add-in-toggle="' +
             block.id +
-            '">+&nbsp; Add a block inside</div></div></div>');
+            '">' +
+            ui("plus", 13, 2.2) +
+            " Add a block inside</div></div></div>");
       break;
     case "image":
       inner = renderImageBlock(block);
@@ -124,12 +129,14 @@ export function renderBlock(block, numberIndex) {
         '<div class="b-page-row" data-nav="' +
         cp.id +
         '"><span class="icon">' +
-        cp.icon +
+        iconImg(cp.icon, 18) +
         '</span><span class="title">' +
         escapeHtml(cp.title || "Untitled") +
         "</span>" +
         (n > 0 ? '<span class="sub" style="color:var(--text-faint);font-size:11.5px;">' + n + " subpage" + (n > 1 ? "s" : "") + "</span>" : "") +
-        '<span class="arrow">\u2192</span></div>';
+        '<span class="arrow">' +
+        ui("arrowRight", 15) +
+        "</span></div>";
       break;
     }
     default:
@@ -147,10 +154,14 @@ export function renderBlock(block, numberIndex) {
       ? '<div class="block-controls">' +
         '<button class="block-ctrl-btn plus" data-plus="' +
         block.id +
-        '" title="Add block below"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>' +
+        '" title="Add block below">' +
+        ui("plus", 14, 2.2) +
+        "</button>" +
         '<button class="block-ctrl-btn handle" data-handle="' +
         block.id +
-        '" title="Drag to move, click for options" draggable="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.4"/><circle cx="16" cy="5" r="1.4"/><circle cx="8" cy="12" r="1.4"/><circle cx="16" cy="12" r="1.4"/><circle cx="8" cy="19" r="1.4"/><circle cx="16" cy="19" r="1.4"/></svg></button>' +
+        '" title="Drag to move, click for options" draggable="true">' +
+        ui("drag", 14) +
+        "</button>" +
         "</div>"
       : '<div class="block-controls"></div>') +
     '<div class="block-content">' +
@@ -172,10 +183,10 @@ export function renderTableBlock(block) {
   html +=
     "</tbody></table>" +
     '<div class="table-tools">' +
-    '<button data-table-add-row="' + block.id + '">+ Row</button>' +
-    '<button data-table-add-col="' + block.id + '">+ Column</button>' +
-    '<button data-table-del-row="' + block.id + '">\u2212 Row</button>' +
-    '<button data-table-del-col="' + block.id + '">\u2212 Column</button>' +
+    '<button data-table-add-row="' + block.id + '">' + ui("plus", 12, 2.2) + " Row</button>" +
+    '<button data-table-add-col="' + block.id + '">' + ui("plus", 12, 2.2) + " Column</button>" +
+    '<button data-table-del-row="' + block.id + '">' + ui("minus", 12, 2.2) + " Row</button>" +
+    '<button data-table-del-col="' + block.id + '">' + ui("minus", 12, 2.2) + " Column</button>" +
     "</div>";
   return html;
 }
@@ -185,7 +196,9 @@ export function renderImageBlock(block) {
     return (
       '<div class="b-image-empty" data-image-drop="' +
       block.id +
-      '"><div>\uD83D\uDDBC\uFE0F</div><div>Click to upload, or paste an image</div>' +
+      '"><div class="b-image-empty-icon">' +
+      ui("image", 26, 1.6) +
+      "</div><div>Click to upload, or paste an image</div>" +
       '<button data-image-upload="' +
       block.id +
       '">Upload image</button>' +

@@ -2,7 +2,8 @@
 // emoji/icon pickers and the confirm modal.
 import { store, getPage, findBlockById, findContainer } from "./state.js";
 import { newPageObject } from "./model.js";
-import { escapeHtml, EMOJI_PRESET, CALLOUT_EMOJI, uid } from "./utils.js";
+import { escapeHtml, uid } from "./utils.js";
+import { ICON_KEYS, CALLOUT_ICON_KEYS, iconImg, ui } from "./icons.js";
 import { BLOCK_TYPES } from "./blockTypes.js";
 import { updateBlockField, convertBlockType, duplicateBlock, deleteBlockById } from "./blocks.js";
 import { scheduleSave } from "./storage.js";
@@ -95,7 +96,7 @@ export function maybeShowToolbar(el, blockId) {
     ["underline", "<u>U</u>", "underline"],
     ["strikeThrough", "<s>S</s>", "strikeThrough"],
     ["code", "{ }", "code"],
-    ["link", "\uD83D\uDD17", "link"]
+    ["link", ui("link", 15), "link"]
   ];
   items.forEach((it, i) => {
     if (i === 4) {
@@ -311,9 +312,13 @@ export function showBlockMenu(anchorEl, blockId) {
   const menu = document.createElement("div");
   menu.className = "ctx-menu";
   menu.innerHTML =
-    '<button data-act="dup"><span>\u2398</span> Duplicate</button>' +
+    '<button data-act="dup"><span class="ctx-icon">' +
+    ui("copy", 15) +
+    "</span> Duplicate</button>" +
     '<div class="ctx-divider"></div>' +
-    '<button data-act="del" class="danger"><span>\uD83D\uDDD1</span> Delete</button>';
+    '<button data-act="del" class="danger"><span class="ctx-icon">' +
+    ui("trash", 15) +
+    "</span> Delete</button>";
   const r = anchorEl.getBoundingClientRect();
   menu.style.position = "absolute";
   menu.style.top = window.scrollY + r.bottom + 4 + "px";
@@ -344,13 +349,15 @@ export function showBlockMenu(anchorEl, blockId) {
 export function showIconPicker(anchorEl, onPick) {
   const pop = document.createElement("div");
   pop.className = "icon-popover";
-  pop.innerHTML = EMOJI_PRESET.map((e) => '<button type="button">' + e + "</button>").join("");
+  pop.innerHTML = ICON_KEYS.map(
+    (key) => '<button type="button" data-icon="' + key + '" title="' + key + '">' + iconImg(key, 22) + "</button>"
+  ).join("");
   positionPopover(pop, anchorEl, 6);
   pop.addEventListener("mousedown", (e) => {
     e.preventDefault();
     const btn = e.target.closest("button");
     if (!btn) return;
-    onPick(btn.textContent);
+    onPick(btn.dataset.icon);
     pop.remove();
   });
 }
@@ -358,13 +365,15 @@ export function showIconPicker(anchorEl, onPick) {
 export function showCalloutEmojiPicker(anchorEl, onPick) {
   const pop = document.createElement("div");
   pop.className = "emoji-popover";
-  pop.innerHTML = CALLOUT_EMOJI.map((e) => '<button type="button">' + e + "</button>").join("");
+  pop.innerHTML = CALLOUT_ICON_KEYS.map(
+    (key) => '<button type="button" data-icon="' + key + '" title="' + key + '">' + iconImg(key, 20) + "</button>"
+  ).join("");
   positionPopover(pop, anchorEl, 4);
   pop.addEventListener("mousedown", (e) => {
     e.preventDefault();
     const btn = e.target.closest("button");
     if (!btn) return;
-    onPick(btn.textContent);
+    onPick(btn.dataset.icon);
     pop.remove();
   });
 }

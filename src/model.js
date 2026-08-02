@@ -1,5 +1,11 @@
 // Pure data model: block/page factories, default state, state normalisation.
-import { uid, defaultIconForTitle } from "./utils.js";
+import { uid } from "./utils.js";
+import {
+  normalizeIconKey,
+  subjectIconForTitle,
+  DEFAULT_PAGE_ICON,
+  DEFAULT_CALLOUT_ICON
+} from "./icons.js";
 
 export function newBlock(type) {
   const b = { id: uid(), type };
@@ -19,7 +25,7 @@ export function newBlock(type) {
       break;
     case "callout":
       b.content = "";
-      b.icon = "\uD83D\uDCA1";
+      b.icon = DEFAULT_CALLOUT_ICON;
       break;
     case "code":
       b.content = "";
@@ -57,7 +63,9 @@ export function newPageObject(opts) {
     parentId: opts.parentId || null,
     type: opts.type,
     title: opts.title || "",
-    icon: opts.icon || (opts.type === "subject" ? defaultIconForTitle(opts.title || "") : "\uD83D\uDCC4"),
+    icon:
+      normalizeIconKey(opts.icon, null) ||
+      (opts.type === "subject" ? subjectIconForTitle(opts.title || "") : DEFAULT_PAGE_ICON),
     examBoard: opts.type === "subject" ? null : undefined,
     examBoardOther: opts.type === "subject" ? "" : undefined,
     examDates: opts.type === "subject" ? [] : undefined,
@@ -68,6 +76,16 @@ export function newPageObject(opts) {
 
 export function createDefaultState() {
   return { pages: {}, rootPageIds: [], activePageId: null, expanded: {} };
+}
+
+/* Older saves stored emoji icons; convert them to the custom icon set. */
+function migrateBlockIcons(blocks) {
+  if (!Array.isArray(blocks)) return;
+  blocks.forEach((b) => {
+    if (!b || typeof b !== "object") return;
+    if (b.type === "callout") b.icon = normalizeIconKey(b.icon, DEFAULT_CALLOUT_ICON);
+    if (b.type === "toggle") migrateBlockIcons(b.children);
+  });
 }
 
 export function normalizeState(obj) {
@@ -86,6 +104,11 @@ export function normalizeState(obj) {
     const p = s.pages[id];
     if (!Array.isArray(p.blocks) || p.blocks.length === 0) p.blocks = [newBlock("paragraph")];
     if (p.type === "subject" && !Array.isArray(p.examDates)) p.examDates = [];
+    p.icon = normalizeIconKey(
+      p.icon,
+      p.type === "subject" ? subjectIconForTitle(p.title || "") : DEFAULT_PAGE_ICON
+    );
+    migrateBlockIcons(p.blocks);
   }
   return s;
 }

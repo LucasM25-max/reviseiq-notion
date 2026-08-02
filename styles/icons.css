@@ -1,0 +1,221 @@
+/* ---------- Custom icon system ---------- */
+/* Loaded after the base stylesheets so it can refine icon sizing/alignment. */
+
+.app-icon {
+  display: inline-block;
+  vertical-align: middle;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.ui-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* Brand ------------------------------------------------------------------ */
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: none;
+  box-shadow: var(--shadow-s);
+  overflow: hidden;
+  padding: 0;
+}
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.brand-name {
+  font-size: 15.5px;
+}
+
+.calendar-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  color: var(--text-soft);
+}
+.calendar-nav-btn.active .calendar-nav-icon {
+  color: var(--accent);
+}
+.btn-new-subject .ui-icon,
+.tree-add .ui-icon {
+  flex-shrink: 0;
+}
+
+/* Sidebar tree ----------------------------------------------------------- */
+.tree-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Page header ------------------------------------------------------------ */
+.page-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  padding: 4px;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+.page-icon-btn:hover {
+  background: var(--bg-soft);
+  transform: translateY(-1px);
+}
+
+/* Breadcrumbs ------------------------------------------------------------ */
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.crumb-text {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Rows that show a page icon --------------------------------------------- */
+.subpage-row .icon,
+.b-page-row .icon,
+.cal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.subpage-row .del,
+.b-page-row .arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.b-page-row .arrow {
+  color: var(--text-faint);
+}
+.b-page-row:hover .arrow {
+  color: var(--accent);
+}
+
+/* Callout ---------------------------------------------------------------- */
+.callout-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 3px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-s);
+  flex-shrink: 0;
+}
+.callout-icon:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Pickers ---------------------------------------------------------------- */
+.icon-popover {
+  grid-template-columns: repeat(7, 1fr);
+  width: 288px;
+  max-height: 260px;
+  overflow-y: auto;
+  gap: 3px;
+}
+.icon-popover button,
+.emoji-popover button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+.icon-popover button:hover,
+.emoji-popover button:hover {
+  background: var(--accent-softer);
+  border-color: var(--accent-soft);
+}
+.emoji-popover {
+  grid-template-columns: repeat(4, 1fr);
+  width: 176px;
+  gap: 3px;
+}
+
+/* Menus ------------------------------------------------------------------ */
+.float-menu .menu-item .mi-icon {
+  color: var(--text-soft);
+}
+.float-menu .menu-item.selected .mi-icon,
+.float-menu .menu-item:hover .mi-icon {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--card-bg);
+}
+.ctx-menu .ctx-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  color: var(--text-soft);
+}
+.ctx-menu button.danger .ctx-icon {
+  color: var(--danger);
+}
+
+/* Buttons that now mix an icon with a label ------------------------------ */
+.add-exam-btn,
+.empty-state button,
+.add-block-ghost,
+.table-tools button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chip-remove .ui-icon {
+  display: block;
+}
+.b-image-empty-icon {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.empty-state .big-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Small polish ----------------------------------------------------------- */
+.tree-row,
+.subpage-row,
+.b-page-row,
+.cal-row,
+.next-exam,
+.block-ctrl-btn,
+.crumb {
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.todo-check .ui-icon {
+  display: block;
+}
+button:focus-visible,
+[contenteditable]:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}

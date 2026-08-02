@@ -2,6 +2,7 @@
 import { store, getPage, getChildren } from "../state.js";
 import { escapeHtml, formatDateHuman, countdownInfo } from "../utils.js";
 import { computeNextExam } from "../exams.js";
+import { iconImg, ui } from "../icons.js";
 
 export function renderSidebar() {
   renderNextExamBanner();
@@ -62,19 +63,19 @@ function renderSidebarNode(pageId, depth) {
     '" data-chevron="' +
     pageId +
     '">' +
-    (hasKids
-      ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>'
-      : "") +
+    (hasKids ? ui("chevron", 11, 2.6) : "") +
     "</div>" +
     '<div class="tree-icon">' +
-    p.icon +
+    iconImg(p.icon, 16) +
     "</div>" +
     '<div class="tree-title">' +
     escapeHtml(p.title || "Untitled") +
     "</div>" +
     '<button class="tree-add" data-add-child="' +
     pageId +
-    '" title="Add subpage"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>' +
+    '" title="Add subpage">' +
+    ui("plus", 12, 2.4) +
+    "</button>" +
     "</div>" +
     '<div class="tree-children">';
 
