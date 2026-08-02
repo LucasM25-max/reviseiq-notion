@@ -75,7 +75,7 @@ export function newPageObject(opts) {
 }
 
 export function createDefaultState() {
-  return { pages: {}, rootPageIds: [], activePageId: null, expanded: {}, srs: {} };
+  return { pages: {}, rootPageIds: [], activePageId: null, expanded: {}, srs: {}, reviewLog: {} };
 }
 
 /* Older saves stored emoji icons; convert them to the custom icon set. */
@@ -134,6 +134,7 @@ export function normalizeState(obj) {
       if (typeof obj.activePageId === "string") s.activePageId = obj.activePageId;
       if (obj.expanded && typeof obj.expanded === "object") s.expanded = obj.expanded;
       if (obj.srs && typeof obj.srs === "object") s.srs = obj.srs;
+      if (obj.reviewLog && typeof obj.reviewLog === "object") s.reviewLog = obj.reviewLog;
     }
   } catch (e) {
     /* ignore malformed input */

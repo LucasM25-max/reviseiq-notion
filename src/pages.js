@@ -120,6 +120,13 @@ export function openCalendarView() {
   renderMain();
 }
 
+export function openTodayView() {
+  store.currentView = "today";
+  closeAllFloating();
+  renderSidebar();
+  renderMain();
+}
+
 export function toggleExpanded(pageId) {
   store.state.expanded[pageId] = !store.state.expanded[pageId];
   renderSidebar();

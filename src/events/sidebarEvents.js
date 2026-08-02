@@ -1,6 +1,13 @@
 // Sidebar interactions: tree navigation, expand/collapse, new pages, calendar,
 // revise sessions, and JSON backup export/import.
-import { navigateTo, createChildPage, createSubjectPage, toggleExpanded, openCalendarView } from "../pages.js";
+import {
+  navigateTo,
+  createChildPage,
+  createSubjectPage,
+  toggleExpanded,
+  openCalendarView,
+  openTodayView
+} from "../pages.js";
 import { startRevise } from "../render/revise.js";
 import { downloadBackup, readBackupFile, applyRestore, summarise } from "../backup.js";
 import { showConfirmModal } from "../overlays.js";
@@ -33,6 +40,7 @@ export function initSidebarEvents() {
   });
 
   document.getElementById("btn-new-subject").addEventListener("click", () => createSubjectPage(""));
+  document.getElementById("today-nav-btn").addEventListener("click", () => openTodayView());
   document.getElementById("calendar-nav-btn").addEventListener("click", () => openCalendarView());
   document.getElementById("revise-nav-btn").addEventListener("click", () => startRevise({ type: "all" }));
 

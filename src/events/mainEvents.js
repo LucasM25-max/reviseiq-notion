@@ -72,6 +72,15 @@ export function initMainEvents() {
       return;
     }
 
+    // Today dashboard rows: either start a revise session or open the page.
+    const planRow = e.target.closest("[data-plan-act]");
+    if (planRow) {
+      const targetId = planRow.dataset.pageId;
+      if (planRow.dataset.planAct === "revise") startRevise({ type: "page", pageId: targetId }, "everything");
+      else navigateTo(targetId);
+      return;
+    }
+
     const iconBtn = e.target.closest("#page-icon-btn");
     if (iconBtn) {
       showIconPicker(iconBtn, (icon) => setPageIcon(iconBtn.dataset.pageId, icon));

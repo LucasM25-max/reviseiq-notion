@@ -9,6 +9,8 @@ export function renderSidebar() {
   renderNextExamBanner();
   const calBtn = document.getElementById("calendar-nav-btn");
   if (calBtn) calBtn.classList.toggle("active", store.currentView === "calendar");
+  const todayBtn = document.getElementById("today-nav-btn");
+  if (todayBtn) todayBtn.classList.toggle("active", store.currentView === "today");
   renderDuePill();
   const tree = document.getElementById("sidebar-tree");
   let html = "";

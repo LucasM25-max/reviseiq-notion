@@ -4,12 +4,20 @@ import { store, getPage } from "../state.js";
 import { escapeHtml, formatDateHuman, countdownInfo } from "../utils.js";
 import { renderBlocksList } from "./blocks.js";
 import { renderCalendarView } from "./calendar.js";
+import { renderTodayView } from "./today.js";
 import { renderToc } from "./toc.js";
 import { iconImg, ui } from "../icons.js";
 import { cardsForPage, isDue } from "../srs.js";
 
 export function renderMain() {
   const root = document.getElementById("main-inner");
+
+  if (store.currentView === "today") {
+    root.innerHTML = renderTodayView();
+    document.getElementById("main").scrollTop = 0;
+    renderToc();
+    return;
+  }
 
   if (store.currentView === "calendar") {
     root.innerHTML = renderCalendarView();

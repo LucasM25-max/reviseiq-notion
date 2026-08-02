@@ -27,6 +27,8 @@ function boot() {
 
   if (!store.state.activePageId || !getPage(store.state.activePageId)) {
     store.state.activePageId = store.state.rootPageIds[0] || null;
+    // Land on the Today dashboard rather than a blank page.
+    store.currentView = "today";
   }
 
   renderSidebar();
