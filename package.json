@@ -1,0 +1,11 @@
+{
+  "name": "reviseiq",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ReviseIQ \u2014 a Notion-style revision workspace with subjects, nested pages, block editing and exam countdowns.",
+  "type": "module",
+  "scripts": {
+    "dev": "python3 -m http.server 3000",
+    "start": "python3 -m http.server 3000"
+  }
+}

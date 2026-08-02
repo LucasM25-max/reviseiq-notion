@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ReviseIQ</title>
+<meta name="description" content="ReviseIQ — a calm, Notion-style revision workspace for GCSE subjects, notes and exam countdowns." />
+<meta name="theme-color" content="#FAF9F6" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="/styles/base.css" />
+<link rel="stylesheet" href="/styles/sidebar.css" />
+<link rel="stylesheet" href="/styles/main.css" />
+<link rel="stylesheet" href="/styles/blocks.css" />
+<link rel="stylesheet" href="/styles/overlays.css" />
+</head>
+<body>
+<div id="app">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">IQ</div>
+      <div class="brand-name">ReviseIQ</div>
+    </div>
+    <div class="brand-sub" id="brand-sub">Your revision space</div>
+    <div id="next-exam-slot"></div>
+    <button class="calendar-nav-btn" id="calendar-nav-btn">
+      <span class="calendar-nav-icon">📅</span>
+      <span>Exam calendar</span>
+    </button>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-scroll" id="sidebar-tree"></div>
+    <div class="save-status" id="save-status"><span class="save-dot"></span><span id="save-status-text">Loading…</span></div>
+    <div class="sidebar-footer">
+      <button class="btn-new-subject" id="btn-new-subject">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New subject
+      </button>
+    </div>
+  </div>
+  <div class="main" id="main">
+    <div class="main-inner" id="main-inner"></div>
+  </div>
+</div>
+<div id="overlay-root"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

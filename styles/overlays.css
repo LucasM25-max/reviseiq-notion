@@ -1,0 +1,76 @@
+.rt-toolbar{
+  position:absolute;z-index:60;background:#2B2A26;border-radius:8px;box-shadow:var(--shadow-m);
+  display:flex;padding:4px;gap:2px;
+}
+.rt-toolbar button{
+  width:30px;height:28px;border:none;background:none;color:#EDEBE3;border-radius:5px;font-size:13px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+}
+.rt-toolbar button:hover{background:rgba(255,255,255,0.14);}
+.rt-toolbar button.active{color:var(--accent-2);}
+.rt-toolbar .sep{width:1px;background:rgba(255,255,255,0.18);margin:4px 2px;}
+
+.float-menu{
+  position:absolute;z-index:70;background:var(--card-bg);border:1px solid var(--border);
+  border-radius:var(--radius-m);box-shadow:var(--shadow-m);width:250px;max-height:320px;overflow-y:auto;padding:6px;
+}
+.float-menu .menu-group-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 8px 4px 8px;}
+.float-menu .menu-item{
+  display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:6px;font-size:13px;cursor:pointer;
+}
+.float-menu .menu-item .mi-icon{
+  width:28px;height:28px;flex-shrink:0;border:1px solid var(--border);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;background:var(--bg-soft);font-size:14px;
+}
+.float-menu .menu-item .mi-text .mi-title{font-weight:500;}
+.float-menu .menu-item .mi-text .mi-desc{font-size:11px;color:var(--text-faint);}
+.float-menu .menu-item.selected,.float-menu .menu-item:hover{background:var(--accent-soft);}
+.float-menu .menu-empty{padding:14px 8px;color:var(--text-faint);font-size:12.5px;text-align:center;}
+
+.ctx-menu{
+  position:absolute;z-index:70;background:var(--card-bg);border:1px solid var(--border);
+  border-radius:var(--radius-m);box-shadow:var(--shadow-m);width:190px;padding:5px;
+}
+.ctx-menu button{
+  width:100%;text-align:left;display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;
+  font-size:13px;border:none;background:none;color:var(--text);
+}
+.ctx-menu button:hover{background:var(--bg-soft);}
+.ctx-menu button.danger{color:var(--danger);}
+.ctx-menu button.danger:hover{background:var(--danger-soft);}
+.ctx-menu .ctx-divider{height:1px;background:var(--border);margin:5px 2px;}
+
+.link-popover{
+  position:absolute;z-index:80;background:var(--card-bg);border:1px solid var(--border);
+  border-radius:var(--radius-m);box-shadow:var(--shadow-m);padding:8px;display:flex;gap:6px;width:260px;
+}
+.link-popover input{flex:1;border:1px solid var(--border-strong);border-radius:6px;padding:6px 8px;font-size:12.5px;}
+.link-popover button{background:var(--accent-2);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12.5px;font-weight:600;}
+
+.icon-popover{
+  position:absolute;z-index:70;background:var(--card-bg);border:1px solid var(--border);
+  border-radius:var(--radius-m);box-shadow:var(--shadow-m);padding:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;width:270px;
+}
+.icon-popover button{border:none;background:none;font-size:19px;padding:6px;border-radius:6px;}
+.icon-popover button:hover{background:var(--bg-soft);}
+
+.emoji-popover{
+  position:absolute;z-index:50;background:var(--card-bg);border:1px solid var(--border);
+  border-radius:var(--radius-m);box-shadow:var(--shadow-m);padding:8px;display:grid;grid-template-columns:repeat(6,1fr);gap:2px;width:220px;
+}
+.emoji-popover button{border:none;background:none;font-size:18px;padding:5px;border-radius:6px;}
+.emoji-popover button:hover{background:var(--bg-soft);}
+
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(43,42,38,0.32);z-index:90;
+  display:flex;align-items:center;justify-content:center;
+}
+.modal{background:var(--card-bg);border-radius:var(--radius-l);box-shadow:var(--shadow-m);width:380px;padding:22px;}
+.modal h3{margin:0 0 8px 0;font-size:16px;font-family:var(--font-serif);}
+.modal p{margin:0 0 18px 0;font-size:13.5px;color:var(--text-soft);line-height:1.55;}
+.modal .modal-actions{display:flex;justify-content:flex-end;gap:8px;}
+.modal button{border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;border:none;}
+.modal .btn-cancel{background:var(--bg-soft);color:var(--text);}
+.modal .btn-cancel:hover{background:var(--border);}
+.modal .btn-danger{background:var(--danger);color:#fff;}
+.modal .btn-danger:hover{background:#9a3f30;}
