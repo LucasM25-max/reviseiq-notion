@@ -9,6 +9,21 @@ import { getFirebase } from "./firebase.js";
 
 const EMAIL_KEY = "reviseiq_signin_email";
 
+/*
+ * Phones and tablets get the redirect flow rather than a popup: mobile
+ * browsers routinely block or instantly close auth popups, which looks
+ * exactly like the button doing nothing.
+ */
+function prefersRedirect() {
+  if (typeof window === "undefined") return false;
+  const coarse = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  const narrow = typeof window.innerWidth === "number" && window.innerWidth <= 860;
+  const standalone =
+    (typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches) ||
+    (typeof navigator !== "undefined" && navigator.standalone === true);
+  return Boolean((coarse && narrow) || standalone);
+}
+
 const listeners = [];
 let current = null; // the Firebase user, or null
 let ready = false;
@@ -79,6 +94,12 @@ export async function signInWithGoogle() {
   if (!fb.ok) throw new Error("Cloud sync isn't set up for this deployment yet.");
   const provider = new fb.sdk.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
+
+  if (prefersRedirect()) {
+    await fb.sdk.signInWithRedirect(fb.auth, provider);
+    return;
+  }
+
   try {
     await fb.sdk.signInWithPopup(fb.auth, provider);
   } catch (e) {

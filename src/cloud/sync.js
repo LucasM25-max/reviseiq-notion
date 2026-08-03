@@ -24,6 +24,13 @@ const BASE_KEY_PREFIX = "reviseiq_sync_base_v1:";
 const FLUSH_DEBOUNCE_MS = 1500;
 const FLUSH_INTERVAL_MS = 15000;
 const BATCH_LIMIT = 400;
+/*
+ * Firestore queues writes locally and only settles the promise once the
+ * server acknowledges them, so a commit can hang indefinitely on a blocked
+ * or flaky network. We never leave the UI waiting on that.
+ */
+const COMMIT_TIMEOUT_MS = 12000;
+const READ_TIMEOUT_MS = 15000;
 
 /* Meta documents: small singletons kept out of the page documents. */
 const META_KEYS = ["workspace", "srs", "insights"];
@@ -114,6 +121,58 @@ function hashOf(value) {
     h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
   }
   return h.toString(16) + ":" + str.length;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Turns a Firestore error into something a student can act on. */
+function describeCloudError(e) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    return "Offline \u2014 saved on this device";
+  }
+  const code = String((e && (e.code || e.name)) || "");
+  if (code.indexOf("permission-denied") > -1) return "Sync blocked \u2014 publish the Firestore rules";
+  if (code.indexOf("unauthenticated") > -1) return "Sign in again to sync";
+  if (code.indexOf("not-found") > -1) return "No Firestore database found";
+  if (code.indexOf("failed-precondition") > -1) return "Firestore needs finishing in the console";
+  if (code.indexOf("resource-exhausted") > -1) return "Firestore quota reached";
+  if (code.indexOf("invalid-argument") > -1) return "A page is too big to sync";
+  if (code.indexOf("unavailable") > -1) return "Can't reach Firestore \u2014 will retry";
+  return "Sync paused \u2014 will retry";
+}
+
+function reportPushError(e) {
+  console.warn("[sync] push failed", e);
+  status("error", describeCloudError(e));
+}
+
+/*
+ * Runs a commit without ever blocking the UI on it. Resolves with:
+ *   null    - committed
+ *   Error   - rejected
+ *   "slow"  - still in flight; the caller carries on and the passed
+ *             callbacks fire later when it finally settles.
+ */
+async function commitWithWatchdog(ops, onLateSuccess) {
+  const settled = commit(ops).then(
+    () => null,
+    (e) => e || new Error("unknown sync error")
+  );
+  const outcome = await Promise.race([settled, delay(COMMIT_TIMEOUT_MS).then(() => "slow")]);
+  if (outcome === "slow") {
+    settled.then((err) => {
+      if (!ctx) return;
+      if (err) {
+        reportPushError(err);
+        return;
+      }
+      if (typeof onLateSuccess === "function") onLateSuccess();
+      status("idle", "Synced");
+    });
+  }
+  return outcome;
 }
 
 function clone(value) {
@@ -219,16 +278,20 @@ export async function startSync(user) {
   status("syncing", "Connecting\u2026");
 
   try {
-    await fb.sdk.setDoc(
+    // Raced against a timeout: a blocked network must not wedge sign-in.
+    await Promise.race([
+      delay(COMMIT_TIMEOUT_MS),
+      fb.sdk.setDoc(
       fb.sdk.doc(fb.db, "users", ctx.uid),
       {
         email: user.email || "",
         displayName: user.displayName || "",
         schemaVersion: 1,
-        lastSeenAt: fb.sdk.serverTimestamp()
-      },
-      { merge: true }
-    );
+          lastSeenAt: fb.sdk.serverTimestamp()
+        },
+        { merge: true }
+      )
+    ]);
   } catch (e) {
     console.warn("[sync] profile write failed", e);
   }
@@ -237,11 +300,18 @@ export async function startSync(user) {
   if (!ctx.base.synced) {
     let remote;
     try {
-      remote = await fetchEverything();
+      remote = await Promise.race([
+        fetchEverything(),
+        delay(READ_TIMEOUT_MS).then(() => {
+          const err = new Error("timed out reading from Firestore");
+          err.code = "unavailable";
+          throw err;
+        })
+      ]);
     } catch (e) {
       console.warn("[sync] initial read failed", e);
-      status("error", "Couldn't reach the cloud");
-      return { ok: false };
+      status("error", describeCloudError(e));
+      return { ok: false, error: e && e.message };
     }
     const remoteCount = Object.keys(remote.pages).length;
     const localCount = Object.keys(store.state.pages || {}).length;
@@ -475,18 +545,31 @@ async function pushEverything(deleteExtras) {
     }
   }
 
-  await commit(ops);
+  const recordBase = () => {
+    if (!ctx) return;
+    ctx.base = { pages: {}, meta: {}, quizzes: {}, tests: {}, synced: true };
+    for (const id in store.state.pages) ctx.base.pages[id] = hashOf(store.state.pages[id]);
+    META_KEYS.forEach((key) => {
+      ctx.base.meta[key] = hashOf(metaPayload(key));
+    });
+    ["quizzes", "tests"].forEach((kind) => {
+      const map = collectionMap(kind);
+      for (const id in map) ctx.base[kind][id] = hashOf(map[id]);
+    });
+    saveBase();
+  };
 
-  ctx.base = { pages: {}, meta: {}, quizzes: {}, tests: {}, synced: true };
-  for (const id in store.state.pages) ctx.base.pages[id] = hashOf(store.state.pages[id]);
-  META_KEYS.forEach((key) => {
-    ctx.base.meta[key] = hashOf(metaPayload(key));
-  });
-  ["quizzes", "tests"].forEach((kind) => {
-    const map = collectionMap(kind);
-    for (const id in map) ctx.base[kind][id] = hashOf(map[id]);
-  });
-  saveBase();
+  const outcome = await commitWithWatchdog(ops, recordBase);
+  if (outcome === "slow") {
+    status("pending", "Uploading in the background\u2026");
+    return;
+  }
+  if (outcome) {
+    reportPushError(outcome);
+    return;
+  }
+
+  recordBase();
   status("idle", "Synced");
 }
 
@@ -650,9 +733,10 @@ export async function flushNow(reason) {
 
   flushing = true;
   status("syncing", "Syncing\u2026");
-  try {
-    await commit(ops);
-    // Record what the cloud now holds.
+
+  // Remembers what the cloud now holds, so the next flush only sends deltas.
+  const recordPushed = () => {
+    if (!ctx) return;
     ctx.base.pages = seen;
     deletions.forEach((id) => {
       delete ctx.base.pages[id];
@@ -666,16 +750,29 @@ export async function flushNow(reason) {
     ctx.base.tests = collHashes.tests;
     ctx.base.synced = true;
     saveBase();
-    status("idle", "Synced");
-    await maybeMoveImages();
-    return { ok: true, pushed: ops.length };
-  } catch (e) {
-    console.warn("[sync] push failed", e);
-    status("error", navigator.onLine === false ? "Offline \u2014 saved on this device" : "Sync paused \u2014 will retry");
-    return { ok: false, error: e && e.message };
+  };
+
+  let outcome;
+  try {
+    outcome = await commitWithWatchdog(ops, recordPushed);
   } finally {
     flushing = false;
   }
+
+  if (outcome === "slow") {
+    // The write is queued in Firestore's offline mirror and will go through.
+    status("pending", "Saved here \u2014 still reaching the cloud");
+    return { ok: false, pending: true };
+  }
+  if (outcome) {
+    reportPushError(outcome);
+    return { ok: false, error: outcome && outcome.message };
+  }
+
+  recordPushed();
+  status("idle", "Synced");
+  await maybeMoveImages();
+  return { ok: true, pushed: ops.length };
 }
 
 async function maybeMoveImages() {
@@ -720,7 +817,7 @@ function subscribe() {
       },
       (err) => {
         console.warn("[sync] page listener error", err);
-        status("error", "Sync paused \u2014 will retry");
+        status("error", describeCloudError(err));
       }
     )
   );
@@ -930,4 +1027,27 @@ export function stampChangedPages() {
       page.updatedAt = now;
     }
   }
+}
+
+/*
+ * A tiny console handle for diagnosing a deployment:
+ *   reviseiqSync.status()   -> what the sidebar is showing and why
+ *   reviseiqSync.state()    -> who is signed in and how much is tracked
+ *   reviseiqSync.flush()    -> force a push now
+ */
+if (typeof window !== "undefined") {
+  window.reviseiqSync = {
+    status: () => lastStatus,
+    state: () =>
+      ctx
+        ? {
+            uid: ctx.uid,
+            device: ctx.device,
+            trackedPages: Object.keys(ctx.base.pages).length,
+            everSynced: ctx.base.synced,
+            localPages: Object.keys(store.state.pages || {}).length
+          }
+        : null,
+    flush: (reason) => flushNow(reason || "manual")
+  };
 }

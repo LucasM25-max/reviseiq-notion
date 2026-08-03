@@ -13,6 +13,13 @@ import { syncStatusNow, flushNow } from "./sync.js";
 let enabled = false;
 let busy = false;
 
+function isTouchDevice() {
+  return (
+    (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches) ||
+    (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0)
+  );
+}
+
 export function setCloudUiEnabled(on) {
   enabled = Boolean(on);
   renderCloudRow();
@@ -81,13 +88,36 @@ function closeSheet() {
   if (el) el.remove();
 }
 
-export function openSignInSheet() {
+/*
+ * Sheets live in #overlay-root and use the app's own .modal-overlay shell,
+ * which centres them on every screen size. On a phone the sidebar is a
+ * slide-in drawer, so it has to be dismissed or it sits on top of the sheet.
+ */
+function mountSheet(inner, dismissable) {
   closeSheet();
+  closeMobileDrawer();
   const wrap = document.createElement("div");
-  wrap.className = "modal-backdrop";
+  wrap.className = "modal-overlay";
   wrap.id = "cloud-sheet";
-  wrap.innerHTML =
-    '<div class="modal cloud-modal" role="dialog" aria-modal="true" aria-label="Sign in">' +
+  wrap.innerHTML = inner;
+  if (dismissable) {
+    wrap.addEventListener("mousedown", (e) => {
+      if (e.target === wrap) closeSheet();
+    });
+  }
+  document.getElementById("overlay-root").appendChild(wrap);
+  return wrap;
+}
+
+function closeMobileDrawer() {
+  const sidebar = document.getElementById("sidebar");
+  const scrim = document.getElementById("sidebar-scrim");
+  if (sidebar) sidebar.classList.remove("open");
+  if (scrim) scrim.classList.remove("show");
+}
+
+const SIGN_IN_HTML =
+  '<div class="modal cloud-modal" role="dialog" aria-modal="true" aria-label="Sign in">' +
     '<div class="cloud-modal-head">' +
     '<span class="cloud-modal-icon">' +
     ui("cloud", 18) +
@@ -107,9 +137,11 @@ export function openSignInSheet() {
     '<div class="cloud-msg" id="cloud-msg" hidden></div>' +
     '<div class="modal-actions"><button class="btn-cancel" data-cloud-act="close">Not now</button></div>' +
     "</div>";
-  document.getElementById("overlay-root").appendChild(wrap);
-  const input = document.getElementById("cloud-email");
-  if (input) input.focus();
+
+export function openSignInSheet() {
+  const wrap = mountSheet(SIGN_IN_HTML, true);
+  const input = wrap.querySelector("#cloud-email");
+  if (input && !isTouchDevice()) input.focus();
 }
 
 function sheetMessage(text, kind) {
@@ -126,11 +158,7 @@ let mergeHandler = null;
 
 export function openMergeSheet(info, onChoice) {
   mergeHandler = onChoice;
-  closeSheet();
-  const wrap = document.createElement("div");
-  wrap.className = "modal-backdrop";
-  wrap.id = "cloud-sheet";
-  wrap.innerHTML =
+  const mergeHtml =
     '<div class="modal cloud-modal" role="dialog" aria-modal="true" aria-label="Choose what to keep">' +
     "<h3>You have notes in two places</h3>" +
     "<p>This device has <strong>" +
@@ -152,7 +180,8 @@ export function openMergeSheet(info, onChoice) {
     "</div>" +
     '<p class="cloud-fineprint">A JSON backup of this device is downloaded first either way.</p>' +
     "</div>";
-  document.getElementById("overlay-root").appendChild(wrap);
+  const wrap = mountSheet(mergeHtml, false);
+  return wrap;
 }
 
 /* ---------------- events ---------------- */

@@ -96,6 +96,10 @@
   color: var(--success);
 }
 
+.cloud-sync-state.pending {
+  color: var(--warn);
+}
+
 .cloud-mini-btn {
   display: inline-flex;
   align-items: center;
@@ -128,8 +132,18 @@
 
 /* ---- sheet ---- */
 
-.cloud-modal {
-  max-width: 420px;
+/* Overrides the 380px fixed width of the shared .modal shell. */
+.modal.cloud-modal {
+  width: min(420px, 92vw);
+  max-width: 92vw;
+  max-height: 86vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Above the mobile sidebar drawer and its scrim. */
+#cloud-sheet {
+  z-index: 120;
 }
 
 .cloud-modal h3 {

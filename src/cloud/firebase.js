@@ -46,7 +46,11 @@ async function boot() {
   let db;
   try {
     db = fsMod.initializeFirestore(app, {
-      localCache: fsMod.persistentLocalCache({ tabManager: fsMod.persistentMultipleTabManager() })
+      localCache: fsMod.persistentLocalCache({ tabManager: fsMod.persistentMultipleTabManager() }),
+      // School and office networks often block Firestore's streaming
+      // transport, which makes writes hang for ever with no error. This
+      // lets the SDK notice and fall back to long polling.
+      experimentalAutoDetectLongPolling: true
     });
   } catch (e) {
     // Already initialised (hot reload) or IndexedDB blocked (private mode).
