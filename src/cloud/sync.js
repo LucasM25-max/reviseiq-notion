@@ -134,6 +134,42 @@ function deviceId() {
 }
 
 /* FNV-1a: short, stable, and cheap enough to run over every page on save. */
+/*
+ * Firestore rejects any array that directly contains another array
+ * ("nested arrays are not supported"). Table blocks store their cells as
+ * rows: [[a, b], [c, d]], which trips this rule on write and previously
+ * surfaced as a misleading "page is too big" error regardless of page
+ * length. These wrap/unwrap any array-inside-an-array as { __arr: [...] }
+ * so page data round-trips through Firestore unchanged.
+ */
+function toFirestoreSafe(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => (Array.isArray(item) ? { __arr: toFirestoreSafe(item) } : toFirestoreSafe(item)));
+  }
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const k in value) out[k] = toFirestoreSafe(value[k]);
+    return out;
+  }
+  return value;
+}
+
+function fromFirestoreSafe(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => fromFirestoreSafe(item));
+  }
+  if (value && typeof value === "object") {
+    const keys = Object.keys(value);
+    if (keys.length === 1 && keys[0] === "__arr" && Array.isArray(value.__arr)) {
+      return fromFirestoreSafe(value.__arr);
+    }
+    const out = {};
+    for (const k in value) out[k] = fromFirestoreSafe(value[k]);
+    return out;
+  }
+  return value;
+}
+
 function hashOf(value) {
   const str = typeof value === "string" ? value : JSON.stringify(value);
   let h = 0x811c9dc5;
@@ -159,7 +195,7 @@ function describeCloudError(e) {
   if (code.indexOf("not-found") > -1) return "No Firestore database found";
   if (code.indexOf("failed-precondition") > -1) return "Firestore needs finishing in the console";
   if (code.indexOf("resource-exhausted") > -1) return "Firestore quota reached";
-  if (code.indexOf("invalid-argument") > -1) return "A page is too big to sync";
+  if (code.indexOf("invalid-argument") > -1) return "Sync rejected this page \u2014 will retry";
   if (code.indexOf("unavailable") > -1) return "Can't reach Firestore \u2014 will retry";
   return "Sync paused \u2014 will retry";
 }
@@ -518,10 +554,10 @@ function applyRemoteSnapshot(remote, mode) {
     if (!docData || docData.deleted) continue;
     const localPage = s.pages[id];
     if (!localPage || mode === "replace") {
-      s.pages[id] = docData.data;
+      s.pages[id] = fromFirestoreSafe(docData.data);
     } else {
       const localStamp = Number(localPage.updatedAt || localPage.createdAt || 0);
-      if (Number(docData.updatedAtMs || 0) > localStamp) s.pages[id] = docData.data;
+      if (Number(docData.updatedAtMs || 0) > localStamp) s.pages[id] = fromFirestoreSafe(docData.data);
     }
   }
 
@@ -775,7 +811,7 @@ function deferRemotePage(id, data) {
 
 function pageDoc(page, now) {
   return {
-    data: page,
+    data: toFirestoreSafe(page),
     hash: hashOf(page),
     title: page.title || "",
     parentId: page.parentId || null,
@@ -1090,7 +1126,7 @@ function applyRemotePage(id, data, sameDevice) {
   }
 
   if (!data.data || typeof data.data !== "object") return false;
-  const remotePage = data.data;
+  const remotePage = fromFirestoreSafe(data.data);
 
   if (!localPage) {
     s.pages[id] = remotePage;

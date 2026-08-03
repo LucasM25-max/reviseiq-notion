@@ -307,7 +307,7 @@ export function initMainEvents() {
       if (tb1) {
         const cols = tb1.rows[0] ? tb1.rows[0].length : 2;
         tb1.rows.push(new Array(cols).fill(""));
-        renderMain();
+        renderBlocksOnly();
         scheduleSave();
       }
       return;
@@ -317,7 +317,7 @@ export function initMainEvents() {
       const tb2 = findBlockById(page.blocks, tAddCol.dataset.tableAddCol);
       if (tb2) {
         tb2.rows.forEach((r) => r.push(""));
-        renderMain();
+        renderBlocksOnly();
         scheduleSave();
       }
       return;
@@ -327,7 +327,7 @@ export function initMainEvents() {
       const tb3 = findBlockById(page.blocks, tDelRow.dataset.tableDelRow);
       if (tb3 && tb3.rows.length > 1) {
         tb3.rows.pop();
-        renderMain();
+        renderBlocksOnly();
         scheduleSave();
       }
       return;
