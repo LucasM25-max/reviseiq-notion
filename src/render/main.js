@@ -9,7 +9,8 @@ import { renderToc } from "./toc.js";
 import { iconImg, ui } from "../icons.js";
 import { cardsForPage, isDue } from "../srs.js";
 import { testEligibility } from "../exam/session.js";
-import { renderFeedbackSection, renderAttemptsSection } from "./insights.js";
+import { quizEligibility } from "../quiz/session.js";
+import { renderFeedbackSection, renderAttemptsSection, renderQuizzesSection } from "./insights.js";
 
 export function renderMain() {
   const root = document.getElementById("main-inner");
@@ -44,6 +45,7 @@ export function renderMain() {
   // new paragraph, without adding another visible "add a block" row.
   html += '<div class="page-tail" id="page-tail"></div>';
   // Mock exam history and any outstanding examiner feedback for this page.
+  html += renderQuizzesSection(page.id);
   html += renderAttemptsSection(page.id);
   html += renderFeedbackSection({ pageId: page.id, title: "Exam feedback for this page", limit: 8 });
   root.innerHTML = html;
@@ -71,9 +73,37 @@ export function renderEmptyState() {
  */
 export function renderPageActions(page) {
   const revise = renderReviseButton(page);
+  const quiz = renderQuizButton(page);
   const test = renderTestButton(page);
-  if (!revise && !test) return "";
-  return '<div class="page-actions">' + revise + test + "</div>";
+  if (!revise && !quiz && !test) return "";
+  return '<div class="page-actions">' + revise + quiz + test + "</div>";
+}
+
+/*
+ * Quiz me works on any page with enough written on it: a hard multiple-choice
+ * quiz on these notes, marked the moment it is finished.
+ */
+function renderQuizButton(page) {
+  const el = quizEligibility(page.id);
+  if (!el) return "";
+  if (!el.enough) {
+    return (
+      '<button class="btn-quiz is-disabled" disabled title="Add more notes first \u2014 ' +
+      el.words +
+      ' words so far">' +
+      ui("quiz", 15) +
+      "<span>Quiz me</span></button>"
+    );
+  }
+  return (
+    '<button class="btn-quiz" id="quiz-me-btn" data-page-id="' +
+    page.id +
+    '" title="Answer a hard multiple-choice quiz written from these notes">' +
+    ui("quiz", 15) +
+    "<span>Quiz me</span>" +
+    '<span class="quiz-badge">MCQ</span>' +
+    "</button>"
+  );
 }
 
 /*

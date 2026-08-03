@@ -16,7 +16,7 @@ import {
   reviewedToday,
   allCards
 } from "../srs.js";
-import { renderFeedbackSection, renderAttemptsSection } from "./insights.js";
+import { renderFeedbackSection, renderAttemptsSection, renderQuizzesSection } from "./insights.js";
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -46,6 +46,7 @@ export function renderTodayView() {
   html += renderPlan(plan, total);
   // Examiner feedback outlives the results screen: it lives here until ticked off.
   html += renderFeedbackSection({ title: "Exam feedback to act on", limit: 6 });
+  html += renderQuizzesSection(null);
   html += renderAttemptsSection(null);
   html += renderShaky();
   html += renderGaps();

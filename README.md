@@ -118,3 +118,10 @@ The two serverless routes (`api/test/generate.js`, `api/test/mark.js`) call Gemi
 
 In Vercel: **Settings -> Environment Variables -> Add** (Production, Preview and Development), then redeploy. The model used is `gemini-flash-latest`.
 
+## Quizzes (Quiz me)
+
+Every page with more than about eighty words of notes gets a **Quiz me** button. Gemini writes a hard multiple-choice quiz (ten to twenty questions, or a length you pick) covering that page, or that page and its subpages if you ask for it. There is no timer.
+
+Marking happens in the browser, because the answer key comes back with the questions, so results are instant. Anything you get wrong is filed into the same **Exam feedback** list the mock exams use, and one button turns every wrong answer into a flashcard at the bottom of the page, which then enters the normal revision schedule.
+
+The quiz routes (`api/quiz/generate.js`, `api/quiz/review.js`) use the same `GEMINI_API_KEY` and the same `gemini-flash-latest` model as the mock exams. No extra configuration is needed.

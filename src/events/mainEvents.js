@@ -25,6 +25,7 @@ import {
 } from "../overlays.js";
 import { startRevise } from "../render/revise.js";
 import { openTestSetup, resumeAttempt, openResults } from "../exam/session.js";
+import { openQuizSetup, resumeQuiz, openQuizResults } from "../quiz/session.js";
 import { resolveInsight } from "../exam/insights.js";
 import {
   navigateTo,
@@ -127,6 +128,19 @@ export function initMainEvents() {
     const reviseBtn = e.target.closest("#revise-page-btn");
     if (reviseBtn) {
       startRevise({ type: "page", pageId: reviseBtn.dataset.pageId });
+      return;
+    }
+
+    const quizBtn = e.target.closest("#quiz-me-btn");
+    if (quizBtn) {
+      openQuizSetup(quizBtn.dataset.pageId);
+      return;
+    }
+
+    const quizAct = e.target.closest("[data-quiz-act]");
+    if (quizAct) {
+      if (quizAct.dataset.quizAct === "resume") resumeQuiz(quizAct.dataset.quizId);
+      else openQuizResults(quizAct.dataset.quizId);
       return;
     }
 

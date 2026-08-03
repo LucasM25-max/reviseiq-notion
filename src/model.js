@@ -84,7 +84,9 @@ export function createDefaultState() {
     reviewLog: {},
     // Mock exam attempts, keyed by id, and the examiner feedback kept from them.
     tests: {},
-    insights: []
+    insights: [],
+    // Multiple-choice quiz attempts from "Quiz me".
+    quizzes: {}
   };
 }
 
@@ -147,6 +149,7 @@ export function normalizeState(obj) {
       if (obj.reviewLog && typeof obj.reviewLog === "object") s.reviewLog = obj.reviewLog;
       if (obj.tests && typeof obj.tests === "object") s.tests = obj.tests;
       if (Array.isArray(obj.insights)) s.insights = obj.insights;
+      if (obj.quizzes && typeof obj.quizzes === "object") s.quizzes = obj.quizzes;
     }
   } catch (e) {
     /* ignore malformed input */
