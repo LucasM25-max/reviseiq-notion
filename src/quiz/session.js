@@ -25,6 +25,7 @@ import {
   unfinishedQuizForPage,
   recordQuizInsights
 } from "./store.js";
+import { authHeaders } from "../cloud/auth.js";
 
 let session = null; // { attempt, view, error, tickId }
 let onClose = () => {};
@@ -647,7 +648,7 @@ async function postJson(url, body) {
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify(body)
     });
   } catch (e) {

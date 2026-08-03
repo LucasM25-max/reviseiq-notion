@@ -7,7 +7,7 @@
  *   - same-origin assets: stale-while-revalidate (instant load, quiet update)
  * Bump CACHE_VERSION whenever the shell changes so old caches are dropped.
  */
-const CACHE_VERSION = "reviseiq-v6";
+const CACHE_VERSION = "reviseiq-v7";
 const SHELL = [
   "/",
   "/index.html",
@@ -26,6 +26,7 @@ const SHELL = [
   "/styles/today.css",
   "/styles/exam.css",
   "/styles/quiz.css",
+  "/styles/cloud.css",
   "/styles/mobile.css",
   "/src/main.js",
   "/src/quiz/quizPrompt.js",
@@ -59,7 +60,14 @@ const SHELL = [
   "/src/exam/session.js",
   "/src/events/mainEvents.js",
   "/src/events/sidebarEvents.js",
-  "/src/events/mobileEvents.js"
+  "/src/events/mobileEvents.js",
+  "/src/cloud/index.js",
+  "/src/cloud/config.js",
+  "/src/cloud/firebase.js",
+  "/src/cloud/auth.js",
+  "/src/cloud/sync.js",
+  "/src/cloud/images.js",
+  "/src/cloud/ui.js"
 ];
 
 self.addEventListener("install", (event) => {

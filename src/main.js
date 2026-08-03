@@ -1,6 +1,6 @@
 // App entry point: load saved data, wire events, paint the first screen.
 import { store, getPage } from "./state.js";
-import { loadState } from "./storage.js";
+import { loadState, initAutosave } from "./storage.js";
 import { renderSidebar } from "./render/sidebar.js";
 import { renderMain } from "./render/main.js";
 import { initGlobalDismiss, setRerenderMain } from "./overlays.js";
@@ -12,6 +12,7 @@ import { setQuizCloseHandler } from "./quiz/session.js";
 import { navigateTo, openTodayView } from "./pages.js";
 import { initMobileEvents } from "./events/mobileEvents.js";
 import { registerServiceWorker, initConnectivityNotices } from "./pwa.js";
+import { initCloud } from "./cloud/index.js";
 
 function boot() {
   setRerenderMain(renderMain);
@@ -49,6 +50,16 @@ function boot() {
   renderSidebar();
   renderMain();
   applyLaunchShortcut();
+
+  // localStorage first, always. Cloud sync is layered on top and is a
+  // no-op when the deployment has no Firebase configured.
+  initAutosave();
+  initCloud({
+    rerender: () => {
+      renderSidebar();
+      renderMain();
+    }
+  });
 }
 
 /* Home-screen shortcuts land on /?view=today or /?view=revise. */

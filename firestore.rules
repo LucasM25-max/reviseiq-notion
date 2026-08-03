@@ -1,0 +1,24 @@
+rules_version = '2';
+
+/*
+ * ReviseIQ Firestore rules.
+ *
+ * One rule, one shape: a signed-in student can read and write everything under
+ * their own users/{uid} document, and nothing else. Paste this into
+ * Firebase console -> Firestore Database -> Rules -> Publish.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // pages, meta, quizzes, tests - every subcollection under the user.
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Anything not matched above is denied by default.
+  }
+}

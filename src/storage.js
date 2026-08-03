@@ -5,6 +5,9 @@ import { createDefaultState, normalizeState } from "./model.js";
 
 export const STORAGE_KEY = "reviseiq_state_v1";
 const SAVE_DEBOUNCE_MS = 700;
+// A heartbeat on top of the debounce: even during constant typing the
+// workspace is written to localStorage at least this often.
+const AUTOSAVE_INTERVAL_MS = 10000;
 const SIZE_WARNING_BYTES = 4700000;
 
 function storageAvailable() {
@@ -28,7 +31,23 @@ export function setSaveStatus(status, text) {
   txt.textContent = text;
 }
 
+/*
+ * Hooks used by the cloud layer. They stay null for a local-only
+ * deployment, which keeps storage.js free of any Firebase knowledge.
+ */
+let beforeSaveHook = null;
+let afterSaveHook = null;
+
+export function setBeforeSave(fn) {
+  beforeSaveHook = typeof fn === "function" ? fn : null;
+}
+
+export function setAfterSave(fn) {
+  afterSaveHook = typeof fn === "function" ? fn : null;
+}
+
 let saveTimer = null;
+let autosaveStarted = false;
 
 export function scheduleSave() {
   setSaveStatus("saving", "Saving\u2026");
@@ -37,6 +56,17 @@ export function scheduleSave() {
 }
 
 export function doSave() {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  if (beforeSaveHook) {
+    try {
+      beforeSaveHook();
+    } catch (e) {
+      console.warn("[storage] before-save hook failed", e);
+    }
+  }
   if (!available) {
     setSaveStatus("error", "Autosave unavailable here");
     return;
@@ -57,6 +87,13 @@ export function doSave() {
   try {
     window.localStorage.setItem(STORAGE_KEY, json);
     setSaveStatus("saved", "Saved");
+    if (afterSaveHook) {
+      try {
+        afterSaveHook();
+      } catch (e) {
+        console.warn("[storage] after-save hook failed", e);
+      }
+    }
   } catch (e) {
     setSaveStatus("full", "Storage full");
     showFullBanner();
@@ -92,6 +129,30 @@ export function loadState() {
     setState(createDefaultState());
     setSaveStatus("saved", "Ready");
   }
+}
+
+/** Writes immediately instead of waiting out the debounce. */
+export function flushSave() {
+  if (!saveTimer) return;
+  doSave();
+}
+
+/*
+ * Belt and braces around the 700ms debounce: a heartbeat while the app is
+ * open, plus an immediate write whenever the tab is being hidden, closed,
+ * or comes back online. Nothing typed should ever be more than a few
+ * seconds away from disk.
+ */
+export function initAutosave() {
+  if (autosaveStarted) return;
+  autosaveStarted = true;
+  setInterval(() => flushSave(), AUTOSAVE_INTERVAL_MS);
+  window.addEventListener("pagehide", flushSave);
+  window.addEventListener("beforeunload", flushSave);
+  window.addEventListener("online", flushSave);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushSave();
+  });
 }
 
 // Handy for backups / debugging from the console.

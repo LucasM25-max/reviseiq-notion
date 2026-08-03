@@ -7,6 +7,7 @@
  */
 import { callGemini } from "../test/generate.js";
 import { buildReviewPrompt } from "../../src/quiz/quizPrompt.js";
+import { requireUser } from "../_lib/auth.js";
 
 const REVIEW_SCHEMA = {
   type: "OBJECT",
@@ -44,6 +45,11 @@ async function readBody(req) {
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") return send(res, 204, {});
   if (req.method !== "POST") return send(res, 405, { error: "Use POST." });
+
+  // Optional Firebase gate. Off until FIREBASE_PROJECT_ID is set, and
+  // only mandatory when REQUIRE_AUTH=1, so nothing breaks mid-setup.
+  const user = await requireUser(req, res, send);
+  if (!user) return;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return send(res, 500, { error: "No Gemini API key is configured." });

@@ -6,6 +6,7 @@
  * Vercel and is used only here.
  */
 import { COMPONENTS, optionById, buildGenerationPrompt, paperTotals } from "../../src/exam/aqaHistory.js";
+import { requireUser } from "../_lib/auth.js";
 
 // Gemini is tried in this order. A model that errors, gets rate limited, is
 // overloaded, or hands back something unreadable simply drops through to the
@@ -176,6 +177,11 @@ export async function callGemini(system, user, schema, apiKey) {
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") return send(res, 204, {});
   if (req.method !== "POST") return send(res, 405, { error: "Use POST." });
+
+  // Optional Firebase gate. Off until FIREBASE_PROJECT_ID is set, and
+  // only mandatory when REQUIRE_AUTH=1, so nothing breaks mid-setup.
+  const user = await requireUser(req, res, send);
+  if (!user) return;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {

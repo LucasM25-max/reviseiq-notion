@@ -1,0 +1,25 @@
+rules_version = '2';
+
+/*
+ * ReviseIQ Cloud Storage rules.
+ *
+ * Images pasted into notes are uploaded to users/{uid}/images/... once the
+ * student is signed in. Only that student can read or write them. Paste this
+ * into Firebase console -> Storage -> Rules -> Publish.
+ */
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /users/{uid}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // Deletes carry no request.resource, so only size-check real uploads.
+      // 12 MB ceiling; images are compressed client-side long before this.
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && (request.resource == null || request.resource.size < 12 * 1024 * 1024);
+    }
+
+    // Everything else is denied.
+  }
+}

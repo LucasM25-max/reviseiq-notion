@@ -125,3 +125,33 @@ Every page with more than about eighty words of notes gets a **Quiz me** button.
 Marking happens in the browser, because the answer key comes back with the questions, so results are instant. Anything you get wrong is filed into the same **Exam feedback** list the mock exams use, and one button turns every wrong answer into a flashcard at the bottom of the page, which then enters the normal revision schedule.
 
 The quiz routes (`api/quiz/generate.js`, `api/quiz/review.js`) use the same `GEMINI_API_KEY` and the same `gemini-flash-latest` model as the mock exams. No extra configuration is needed.
+
+## Cloud sync and accounts
+
+Sync is optional and layered on top of the existing local storage, never in place of it. With no Firebase configured the app behaves exactly as it always has: everything lives in `localStorage` on the device, and the sidebar shows no account row.
+
+Once Firebase is configured (see `docs/FIREBASE_SETUP.md` for the ten-minute walkthrough), a **Sign in to sync** row appears at the foot of the sidebar. Signing in with Google or an emailed sign-in link mirrors the workspace to Firestore.
+
+How it behaves:
+
+- **Local first.** Every change is written to `localStorage` first, on a 700 ms debounce, with a 10 second heartbeat and an immediate write whenever the tab is hidden, closed or comes back online. The network is never on the path between typing and saving.
+- **One document per page.** Two devices editing different pages never collide. Flashcard schedules, feedback, quizzes and mock exams sync as their own documents.
+- **Conflicts keep both copies.** If the same page changed in two places since the last sync, the newer version wins and the older one is preserved as "Page name (conflicted copy, 3 Aug)". Nothing typed is discarded.
+- **Offline.** Firestore keeps its own offline mirror, so edits made on a train are queued and pushed on reconnect. The status line under your name reports `Synced`, `Syncing`, `Offline` or `Sync paused`.
+- **Images.** Pasted images are compressed and stored inline while signed out. Once signed in they move to Cloud Storage in the background, which keeps page documents well inside Firestore's 1 MiB limit.
+- **First sign-in on a device that already has notes** asks once whether to merge, keep the device, or keep the account, and downloads a JSON backup before anything is replaced.
+
+### Environment variables
+
+| Name | Required | Purpose |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | for AI features | Quiz and mock exam generation and marking |
+| `FIREBASE_API_KEY` | for sync | Firebase web config |
+| `FIREBASE_AUTH_DOMAIN` | for sync | Firebase web config |
+| `FIREBASE_PROJECT_ID` | for sync | Firebase web config, and token verification on the API |
+| `FIREBASE_STORAGE_BUCKET` | for sync | Image uploads |
+| `FIREBASE_MESSAGING_SENDER_ID` | for sync | Firebase web config |
+| `FIREBASE_APP_ID` | for sync | Firebase web config |
+| `REQUIRE_AUTH` | optional | Set to `1` to reject unauthenticated calls to the Gemini endpoints |
+
+The six Firebase values are public by design; access is controlled by `firestore.rules` and `storage.rules`, both included in this repo.
