@@ -248,11 +248,22 @@
 }
 
 .quiz-elapsed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-mono);
   font-size: 14px;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
+
+.quiz-elapsed svg { color: var(--text-faint); }
+
+.quiz-score-pct { display: flex; align-items: center; gap: 6px; }
+.quiz-score-pct svg { color: var(--accent); }
+
+/* results are a normal reading screen, not an exam */
+.quiz-overlay.is-review .quiz-bar { background: var(--card-bg); }
 
 .quiz-bar-right {
   display: flex;
@@ -547,6 +558,12 @@
   font-family: var(--font-serif);
   font-size: 18px;
   color: var(--text);
+}
+
+.quiz-confirm-card .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .quiz-confirm-card p {

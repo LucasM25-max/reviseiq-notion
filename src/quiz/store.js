@@ -102,7 +102,7 @@ function addInsight(item) {
  * getting three questions on the same topic wrong records one weak spot, not
  * three. Any focus areas from the optional review pass are recorded too.
  */
-export function recordQuizInsights(attempt) {
+export function recordQuizInsights(attempt, focusOnly) {
   if (!attempt || !attempt.result) return;
   const now = Date.now();
   const base = {
@@ -113,7 +113,8 @@ export function recordQuizInsights(attempt) {
     lastSeen: now
   };
 
-  (attempt.result.wrong || []).forEach((w) => {
+  if (!focusOnly)
+    (attempt.result.wrong || []).forEach((w) => {
     addInsight(
       Object.assign({}, base, {
         kind: "gap",

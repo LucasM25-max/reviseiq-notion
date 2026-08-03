@@ -12,7 +12,8 @@ export const ICON_KEYS = [
   "chat", "palette", "music", "laptop", "briefcase", "mask", "ruler",
   "brain", "ball", "trophy", "graduation", "leaf", "rocket",
   "clock", "calendar", "checklist", "target", "flag", "pin", "key",
-  "star", "flame", "bulb", "warning", "check"
+  "star", "flame", "bulb", "warning", "check",
+  "exam", "marksheet", "stopwatch", "medal", "cards", "question", "chart"
 ];
 
 export const CALLOUT_ICON_KEYS = ["bulb", "pin", "warning", "check", "note", "key", "star", "flame"];
@@ -111,6 +112,12 @@ const UI_PATHS = {
   divider: '<path d="M4 12h16"/>',
   flag: '<path d="M6 20.5V3.8"/><path d="M6 4.4h9.6l-1.9 3.6 1.9 3.6H6"/>',
   target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/>',
+  stopwatch: '<circle cx="12" cy="13.6" r="7.2"/><path d="M12 10v3.6l2.3 1.4"/><path d="M9.7 3h4.6M12 3v2.5"/><path d="m18.6 7 1.3-1.3"/>',
+  medal: '<circle cx="12" cy="15.2" r="5.2"/><path d="m9.5 10.6-3-7.4h4.1L12 8.1"/><path d="m14.5 10.6 3-7.4h-4.1L12 8.1"/>',
+  cards: '<rect x="3" y="7.8" width="13" height="9.8" rx="2" transform="rotate(-7 9.5 12.7)"/><rect x="7.2" y="6.4" width="13.6" height="10.2" rx="2"/><path d="M10.4 10h7.2M10.4 12.8h4.8"/>',
+  exam: '<path d="M6.4 3.4h7.4L18 7.1v13.5H6.4z"/><path d="M13.6 3.4v3.7h4.3"/><path d="m9 12.4 1.4 1.4 2.7-2.9"/><path d="M9 17h6.4"/>',
+  question: '<circle cx="12" cy="12" r="8.4"/><path d="M9.7 9.7a2.4 2.4 0 0 1 4.7.6c0 1.6-2.3 1.9-2.3 3.4"/><path d="M12 17h.01"/>',
+  chart: '<path d="M4.2 20h15.6"/><path d="M7.4 20v-6.2M12 20V8.6M16.6 20V4.9"/>',
   quiz: '<rect x="3.5" y="4.5" width="13" height="15" rx="2"/><path d="M7.5 3.2h9A2.3 2.3 0 0 1 18.8 5.5v11"/><path d="M6.8 9.2h6M6.8 12.4h4"/><polyline points="6.6 15.8 8 17.2 10.8 14.4"/>',
   bulb: '<path d="M9 17.5h6M10 20.5h4"/><path d="M12 3.5a5.5 5.5 0 0 0-3.2 9.98c.5.36.8.93.8 1.54v.48h4.8v-.48c0-.61.3-1.18.8-1.54A5.5 5.5 0 0 0 12 3.5Z"/>',
   warning: '<path d="M12 4.6 21 19.4H3z"/><path d="M12 10v4.2"/><circle cx="12" cy="16.8" r="1" fill="currentColor" stroke="none"/>',

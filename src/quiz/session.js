@@ -198,7 +198,7 @@ function overlayEl() {
   return document.getElementById("quiz-overlay");
 }
 
-function mountOverlay() {
+function mountOverlay(fullscreen) {
   let overlay = overlayEl();
   if (overlay) return overlay;
   overlay = document.createElement("div");
@@ -207,7 +207,10 @@ function mountOverlay() {
   document.getElementById("overlay-root").appendChild(overlay);
   overlay.addEventListener("click", handleOverlayClick);
   document.addEventListener("keydown", handleKey, true);
-  requestFullscreen(overlay);
+  // Only the quiz itself takes over the screen. Marks and feedback are read
+  // like any other page, so the browser stays as it was.
+  if (fullscreen) requestFullscreen(overlay);
+  else exitFullscreen();
   return overlay;
 }
 
@@ -268,7 +271,7 @@ export async function startQuiz(cfg) {
   };
 
   session = { attempt, view: "generating", error: null, tickId: null };
-  mountOverlay();
+  mountOverlay(true);
   paint();
 
   try {
@@ -304,7 +307,7 @@ export function resumeQuiz(quizId) {
   }
   session = { attempt, view: "quiz", error: null, tickId: null };
   attempt.resumedAt = Date.now();
-  mountOverlay();
+  mountOverlay(true);
   startTick();
   paint();
 }
@@ -312,8 +315,9 @@ export function resumeQuiz(quizId) {
 export function openQuizResults(quizId) {
   const attempt = getQuizAttempt(quizId);
   if (!attempt || !attempt.result) return;
+  stopTick();
   session = { attempt, view: "results", error: null, tickId: null };
-  mountOverlay();
+  mountOverlay(false);
   paint();
 }
 
@@ -528,6 +532,9 @@ function finish() {
   recordQuizInsights(a);
 
   session.view = "results";
+  exitFullscreen(); // marks are not taken under exam conditions
+  const shell = overlayEl();
+  if (shell) shell.classList.add("is-review");
   paint();
 
   // The weak-spot summary is worth having, so ask for it straight away.
@@ -556,7 +563,7 @@ async function runReview() {
     a.result.focusAreas = res.focusAreas || [];
     a.result.reviewState = "done";
     saveQuizAttempt(a);
-    recordQuizInsights(a);
+    recordQuizInsights(a, true);
   } catch (e) {
     if (!session || session.attempt.id !== a.id) return;
     a.result.reviewState = "error";
@@ -592,6 +599,11 @@ function retryWrong() {
   };
 
   session = { attempt: retry, view: "quiz", error: null, tickId: null };
+  const shell = overlayEl();
+  if (shell) {
+    shell.classList.remove("is-review");
+    requestFullscreen(overlayEl());
+  }
   saveQuizAttempt(retry);
   startTick();
   paint();
@@ -712,7 +724,7 @@ function renderQuiz(attempt) {
     " \u00b7 " + answered + " answered</div>" +
     "</div>" +
     '<div class="quiz-elapsed" id="quiz-elapsed" title="Time on this quiz \u2014 there is no limit">' +
-    clock(elapsed()) + "</div>" +
+    ui("stopwatch", 13) + "<span>" + clock(elapsed()) + "</span></div>" +
     '<div class="quiz-bar-right">' +
     '<button class="quiz-finish-btn" data-quiz-act="finish-ask">Finish</button>' +
     '<button class="quiz-close" data-quiz-act="close" title="Leave (your answers are saved)">' +
@@ -804,7 +816,7 @@ function renderResults(attempt) {
     '<div class="quiz-score">' +
     '<div class="quiz-score-mark"><span class="big">' + r.score + '</span><span class="outof">/ ' + r.total + "</span></div>" +
     '<div class="quiz-score-meta">' +
-    '<div class="quiz-score-pct">' + r.percentage + "%</div>" +
+    '<div class="quiz-score-pct">' + ui("medal", 15) + r.percentage + "%</div>" +
     '<div class="quiz-score-time">' + clock(attempt.elapsedSeconds || 0) + " taken</div>" +
     "</div></div>";
 
@@ -815,7 +827,7 @@ function renderResults(attempt) {
     html +=
       '<div class="quiz-actions">' +
       '<button class="btn-primary" data-quiz-act="flashcards"' + (madeAll ? " disabled" : "") + ">" +
-      ui("flashcard", 15) +
+      ui("cards", 15) +
       (madeAll
         ? "Flashcards added (" + attempt.cardsMade + ")"
         : "Turn " + r.wrong.length + " miss" + (r.wrong.length === 1 ? "" : "es") + " into flashcards") +

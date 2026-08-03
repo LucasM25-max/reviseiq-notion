@@ -144,6 +144,35 @@
   font-family: inherit;
 }
 .btn-primary:hover { filter: brightness(1.06); }
+/* These three are used inside the exam and quiz overlays, which are not
+   .modal containers, so they need styling of their own. */
+.btn-cancel {
+  padding: 8px 15px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+.btn-cancel:hover { background: var(--border); }
+.btn-danger {
+  padding: 8px 15px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--danger);
+  background: var(--danger);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+.btn-danger:hover { filter: brightness(1.06); }
+.btn-primary[disabled],
+.btn-ghost[disabled],
+.btn-cancel[disabled] { opacity: 0.5; cursor: default; filter: none; }
 .btn-ghost {
   padding: 8px 15px;
   border-radius: var(--radius-s);
@@ -315,6 +344,7 @@
   max-width: 400px;
   width: calc(100vw - 32px);
 }
+.exam-confirm-card .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .exam-confirm-card h3 { margin: 0 0 6px; }
 .exam-confirm-card p { margin: 0 0 16px; color: var(--text-soft); font-size: 13.5px; }
 

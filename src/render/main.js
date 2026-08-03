@@ -40,12 +40,12 @@ export function renderMain() {
   html += renderPageHeader(page);
   if (page.type === "subject") html += renderExamPanel(page);
   html += renderPageActions(page);
+  html += renderQuizzesSection(page.id);
   html += '<div class="block-list" id="block-list" data-page-id="' + page.id + '">' + renderBlocksList(page.blocks) + "</div>";
   // Invisible click target: clicking the space under the last block starts a
   // new paragraph, without adding another visible "add a block" row.
   html += '<div class="page-tail" id="page-tail"></div>';
   // Mock exam history and any outstanding examiner feedback for this page.
-  html += renderQuizzesSection(page.id);
   html += renderAttemptsSection(page.id);
   html += renderFeedbackSection({ pageId: page.id, title: "Exam feedback for this page", limit: 8 });
   root.innerHTML = html;

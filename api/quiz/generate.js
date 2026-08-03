@@ -5,10 +5,8 @@
  * lives in the GEMINI_API_KEY environment variable on Vercel and never reaches
  * the browser.
  */
-import { callGemini } from "../test/generate.js";
+import { callGemini, lastModelUsed } from "../test/generate.js";
 import { buildQuizPrompt, clampCount, MIN_QUIZ_WORDS, MAX_NOTE_CHARS } from "../../src/quiz/quizPrompt.js";
-
-const MODEL = "gemini-flash-latest";
 
 const QUIZ_SCHEMA = {
   type: "OBJECT",
@@ -139,7 +137,7 @@ export default async function handler(req, res) {
       title: String(generated.title || "").trim().slice(0, 90) || String(body.pageTitle || "Quiz"),
       questions: questions.slice(0, count),
       generatedAt: Date.now(),
-      model: MODEL
+      model: lastModelUsed()
     }
   });
 }

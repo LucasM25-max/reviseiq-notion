@@ -7,8 +7,21 @@
  */
 import { COMPONENTS, optionById, buildGenerationPrompt, paperTotals } from "../../src/exam/aqaHistory.js";
 
-const MODEL = "gemini-flash-latest";
-const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent";
+// Gemini is tried in this order. A model that errors, gets rate limited, is
+// overloaded, or hands back something unreadable simply drops through to the
+// next one; the student only ever sees an error if all three fail.
+export const MODEL_CHAIN = ["gemini-flash-latest", "gemini-pro-latest", "gemini-flash-lite-latest"];
+
+function endpointFor(model) {
+  return "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
+}
+
+let lastModel = MODEL_CHAIN[0];
+
+/** The model that actually produced the most recent successful answer. */
+export function lastModelUsed() {
+  return lastModel;
+}
 const MAX_NOTE_CHARS = 45000;
 
 const PAPER_SCHEMA = {
@@ -76,8 +89,8 @@ async function readBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 }
 
-export async function callGemini(system, user, schema, apiKey) {
-  const res = await fetch(ENDPOINT + "?key=" + encodeURIComponent(apiKey), {
+async function callModel(model, system, user, schema, apiKey) {
+  const res = await fetch(endpointFor(model) + "?key=" + encodeURIComponent(apiKey), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -133,6 +146,33 @@ export async function callGemini(system, user, schema, apiKey) {
   }
 }
 
+/**
+ * Ask Gemini for JSON, falling back down MODEL_CHAIN on any failure.
+ * Throws only when every model in the chain has failed.
+ */
+export async function callGemini(system, user, schema, apiKey) {
+  let lastError = null;
+
+  for (const model of MODEL_CHAIN) {
+    try {
+      const out = await callModel(model, system, user, schema, apiKey);
+      lastModel = model;
+      return out;
+    } catch (e) {
+      lastError = e;
+      console.warn("[gemini] " + model + " failed: " + e.message);
+    }
+  }
+
+  const err = new Error(
+    "all three Gemini models failed (flash, pro, then flash-lite). Last error: " +
+      ((lastError && lastError.message) || "no response")
+  );
+  err.status = lastError && lastError.status === 429 ? 429 : 502;
+  err.allModelsFailed = true;
+  throw err;
+}
+
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") return send(res, 204, {});
   if (req.method !== "POST") return send(res, 405, { error: "Use POST." });
@@ -179,7 +219,7 @@ export default async function handler(req, res) {
     return send(res, e.status || 502, {
       error:
         e.status === 429
-          ? "Gemini is rate limiting right now. Wait a minute and try again."
+          ? "Every Gemini model is rate limiting right now. Wait a minute and try again."
           : "Couldn't generate the paper: " + e.message
     });
   }
@@ -227,7 +267,7 @@ export default async function handler(req, res) {
       sources,
       questions,
       generatedAt: Date.now(),
-      model: MODEL
+      model: lastModelUsed()
     }
   });
 }

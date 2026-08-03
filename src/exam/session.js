@@ -258,7 +258,7 @@ function overlayEl() {
   return document.getElementById("exam-overlay");
 }
 
-function mountOverlay() {
+function mountOverlay(fullscreen) {
   let overlay = overlayEl();
   if (overlay) return overlay;
   overlay = document.createElement("div");
@@ -268,7 +268,8 @@ function mountOverlay() {
   overlay.addEventListener("click", handleOverlayClick);
   overlay.addEventListener("input", handleOverlayInput);
   document.addEventListener("keydown", handleKey, true);
-  requestFullscreen(overlay);
+  if (fullscreen) requestFullscreen(overlay);
+  else exitFullscreen();
   return overlay;
 }
 
@@ -327,7 +328,7 @@ export async function startTest(cfg) {
   };
 
   session = { attempt, view: "generating", error: null, timerId: null };
-  mountOverlay();
+  mountOverlay(true);
   paint();
 
   try {
@@ -364,7 +365,7 @@ export function resumeAttempt(testId) {
     return;
   }
   session = { attempt, view: "exam", error: null, timerId: null };
-  mountOverlay();
+  mountOverlay(true);
   if (remainingSeconds() <= 0) {
     paint();
     submit(true);
@@ -378,7 +379,7 @@ export function openResults(testId) {
   const attempt = getAttempt(testId);
   if (!attempt || !attempt.result) return;
   session = { attempt, view: "results", error: null, timerId: null };
-  mountOverlay();
+  mountOverlay(false);
   paint();
 }
 
@@ -513,6 +514,7 @@ async function submit(auto) {
     saveAttempt(attempt);
     recordFromAttempt(attempt);
     session.view = "results";
+    exitFullscreen(); // feedback is read normally, not under exam conditions
     paint();
   } catch (e) {
     if (!session) return;
