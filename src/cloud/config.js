@@ -44,7 +44,7 @@ export function loadCloudConfig() {
     })
     .catch(() => {
       const fallback = readCache();
-      cached = fallback || { configured: false, requireAuth: false, firebase: null };
+      cached = fallback || { configured: false, requireAuth: false, databaseId: "(default)", firebase: null };
       return cached;
     })
     .finally(() => {
@@ -56,5 +56,5 @@ export function loadCloudConfig() {
 
 /** Synchronous peek, used by code that cannot await (e.g. request headers). */
 export function cloudConfigNow() {
-  return cached || readCache() || { configured: false, requireAuth: false, firebase: null };
+  return cached || readCache() || { configured: false, requireAuth: false, databaseId: "(default)", firebase: null };
 }

@@ -28,9 +28,15 @@ export default function handler(req, res) {
 
   const configured = Boolean(firebase.apiKey && firebase.projectId && firebase.appId);
 
+  // Most projects have a single database called "(default)". Projects created
+  // by Google AI Studio instead get a named one (ai-studio-...), which the SDK
+  // will not find unless we ask for it by name.
+  const databaseId = (process.env.FIREBASE_DATABASE_ID || "(default)").trim() || "(default)";
+
   return send(res, 200, {
     configured,
     requireAuth: process.env.REQUIRE_AUTH === "1",
+    databaseId,
     firebase: configured ? firebase : null
   });
 }

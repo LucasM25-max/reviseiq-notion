@@ -1147,7 +1147,11 @@ if (typeof window !== "undefined") {
           }
         : null,
     flush: (reason) => flushNow(reason || "manual"),
-    diagnose: () => probeFirestore(),
+    diagnose: async () => {
+      const probe = await probeFirestore();
+      console.info("[sync] diagnosis", probe);
+      return probe;
+    },
     longPolling: () => isLongPolling()
   };
 }

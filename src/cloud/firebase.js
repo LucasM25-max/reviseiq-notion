@@ -17,6 +17,7 @@ import { loadCloudConfig } from "./config.js";
 export const FIREBASE_VERSION = "10.12.5";
 const BASE = "https://www.gstatic.com/firebasejs/" + FIREBASE_VERSION + "/";
 const LONG_POLL_KEY = "reviseiq_force_long_polling";
+const DEFAULT_DB = "(default)";
 
 let bootPromise = null;
 let cached = null;
@@ -57,7 +58,12 @@ export function getFirebase() {
   return bootPromise;
 }
 
-function makeDb(fsMod, app, forceLongPolling) {
+export function databaseIdNow() {
+  return (cached && cached.databaseId) || (cfgCache && cfgCache.databaseId) || DEFAULT_DB;
+}
+
+function makeDb(fsMod, app, forceLongPolling, databaseId) {
+  const named = databaseId && databaseId !== DEFAULT_DB;
   const options = {
     localCache: fsMod.persistentLocalCache({ tabManager: fsMod.persistentMultipleTabManager() })
   };
@@ -69,16 +75,20 @@ function makeDb(fsMod, app, forceLongPolling) {
     options.experimentalAutoDetectLongPolling = true;
   }
   try {
-    return fsMod.initializeFirestore(app, options);
+    return named
+      ? fsMod.initializeFirestore(app, options, databaseId)
+      : fsMod.initializeFirestore(app, options);
   } catch (e) {
     // Already initialised (hot reload) or IndexedDB blocked (private mode).
     try {
       const bare = forceLongPolling
         ? { experimentalForceLongPolling: true, useFetchStreams: false }
         : { experimentalAutoDetectLongPolling: true };
-      return fsMod.initializeFirestore(app, bare);
+      return named
+        ? fsMod.initializeFirestore(app, bare, databaseId)
+        : fsMod.initializeFirestore(app, bare);
     } catch (e2) {
-      return fsMod.getFirestore(app);
+      return named ? fsMod.getFirestore(app, databaseId) : fsMod.getFirestore(app);
     }
   }
 }
@@ -102,7 +112,8 @@ async function boot() {
   const auth = authMod.getAuth(app);
 
   const forced = longPollingRemembered();
-  const db = makeDb(fsMod, app, forced);
+  const databaseId = (cfg.databaseId || DEFAULT_DB).trim() || DEFAULT_DB;
+  const db = makeDb(fsMod, app, forced, databaseId);
   const storage = storeMod.getStorage(app);
 
   cached = {
@@ -112,6 +123,7 @@ async function boot() {
     db,
     storage,
     longPolling: forced,
+    databaseId,
     projectId: cfg.firebase.projectId,
     requireAuth: Boolean(cfg.requireAuth),
     sdk: {
@@ -165,7 +177,7 @@ export async function switchToLongPolling() {
   try {
     appCounter += 1;
     const altApp = mods.appMod.initializeApp(cfgCache.firebase, "reviseiq-lp-" + appCounter);
-    const db = makeDb(mods.fsMod, altApp, true);
+    const db = makeDb(mods.fsMod, altApp, true, databaseIdNow());
     rememberLongPolling(true);
     cached = Object.assign({}, fb, { db, longPolling: true });
     bootPromise = Promise.resolve(cached);
@@ -201,12 +213,20 @@ export async function probeFirestore() {
     token = null;
   }
 
-  const path = user ? "/users/" + user.uid : "";
+  const databaseId = databaseIdNow();
+  // Deliberately a LIST, not a GET of one document. Listing a collection that
+  // holds nothing returns 200 with an empty body, whereas fetching a document
+  // that does not exist returns 404 with the word "databases" in the resource
+  // path - indistinguishable, by text, from a genuinely missing database.
+  const path = user ? "/users/" + encodeURIComponent(user.uid) + "/pages" : "";
   const url =
     "https://firestore.googleapis.com/v1/projects/" +
     encodeURIComponent(projectId) +
-    "/databases/(default)/documents" +
-    path;
+    "/databases/" +
+    encodeURIComponent(databaseId) +
+    "/documents" +
+    path +
+    "?pageSize=1";
 
   let res;
   let body = null;
@@ -220,53 +240,65 @@ export async function probeFirestore() {
     return {
       reachable: false,
       reason: "network-blocked",
+      projectId,
+      databaseId,
+      signedIn: Boolean(user),
       message: "This network is blocking Google's servers. Try mobile data or another wifi."
     };
   }
 
   const text = JSON.stringify(body || {}).toLowerCase();
+  const detail = (body && body.error && body.error.message) || "";
+  const out = (reachable, reason, message) => ({
+    reachable,
+    reason,
+    message,
+    projectId,
+    databaseId,
+    signedIn: Boolean(user),
+    status: res.status,
+    detail
+  });
 
-  if (res.ok) {
-    return { reachable: true, reason: "ok", message: "Firestore is reachable." };
-  }
+  if (res.ok) return out(true, "ok", "Firestore is reachable.");
+
   if (res.status === 404) {
-    if (text.indexOf("database") > -1) {
-      return {
-        reachable: false,
-        reason: "no-database",
-        message: "No Firestore database in this project \u2014 create one in the console."
-      };
+    // Only "the database ... does not exist" means the database is missing.
+    const missingDb =
+      text.indexOf("does not exist") > -1 ||
+      text.indexOf("no such database") > -1 ||
+      text.indexOf("database not found") > -1;
+    if (missingDb) {
+      return out(
+        false,
+        "no-database",
+        databaseId === DEFAULT_DB
+          ? "No \u201c(default)\u201d Firestore database in this project \u2014 create one, or set FIREBASE_DATABASE_ID."
+          : "No Firestore database called \u201c" + databaseId + "\u201d \u2014 check FIREBASE_DATABASE_ID."
+      );
     }
-    // A missing document still means the backend answered us.
-    return { reachable: true, reason: "ok-empty", message: "Firestore is reachable." };
+    // Anything else 404 still means the backend answered us.
+    return out(true, "ok-empty", "Firestore is reachable.");
   }
+
   if (res.status === 403) {
-    if (text.indexOf("has not been used") > -1 || text.indexOf("service_disabled") > -1 || text.indexOf("disabled") > -1) {
-      return {
-        reachable: false,
-        reason: "api-disabled",
-        message: "Turn on the Cloud Firestore API for this project, then reload."
-      };
+    if (
+      text.indexOf("has not been used") > -1 ||
+      text.indexOf("service_disabled") > -1 ||
+      text.indexOf("api has not been") > -1
+    ) {
+      return out(false, "api-disabled", "Turn on the Cloud Firestore API for this project, then reload.");
     }
-    return {
-      reachable: true,
-      reason: "rules",
-      message: "Firestore rules are rejecting this account \u2014 publish firestore.rules."
-    };
+    return out(true, "rules", "Firestore rules are rejecting this account \u2014 publish firestore.rules to this database.");
   }
+
   if (res.status === 401) {
-    return { reachable: true, reason: "auth", message: "Sign out and back in to refresh your account." };
+    return out(true, "auth", "Sign out and back in to refresh your account.");
   }
+
   if (res.status === 400 && text.indexOf("datastore mode") > -1) {
-    return {
-      reachable: false,
-      reason: "datastore-mode",
-      message: "This project's database is in Datastore mode \u2014 it needs a Firestore Native database."
-    };
+    return out(false, "datastore-mode", "This project's database is in Datastore mode \u2014 it needs a Firestore Native database.");
   }
-  return {
-    reachable: false,
-    reason: "http-" + res.status,
-    message: "Firestore replied with an error (" + res.status + "). See the console for details."
-  };
+
+  return out(false, "http-" + res.status, "Firestore replied with an error (" + res.status + "). See the console for details.");
 }
