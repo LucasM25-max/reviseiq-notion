@@ -65,6 +65,7 @@ Vercel dashboard > project > **Settings > Environment Variables**. Add these to
 | `FIREBASE_STORAGE_BUCKET` | `storageBucket`, e.g. `reviseiq.appspot.com` |
 | `FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` |
 | `FIREBASE_APP_ID` | `appId` |
+| `FIREBASE_DATABASE_ID` | Optional. Only needed if your Firestore database is not called `(default)` - see below. |
 
 `GEMINI_API_KEY` stays exactly as it is.
 
@@ -125,6 +126,39 @@ A JSON backup downloads automatically before anything is replaced.
 One student sits far inside the free Spark plan: 1 GiB stored, 50k reads and
 20k writes a day, 5 GB of Storage. Writes are batched and debounced, so a heavy
 revision session is a few hundred writes, not thousands.
+
+## Named databases (Google AI Studio projects)
+
+Almost every Firebase project has one Firestore database called `(default)`, and
+the SDK assumes that name. Projects that Google AI Studio creates are the
+exception: they arrive with a database named something like
+`ai-studio-51ee6c86-77b7-4d29-965f-172cbb5d1cc8`. The database is perfectly
+fine, the name is just different - but the app looks for `(default)`, finds
+nothing there, and reports "No Firestore database in this project".
+
+To find your database name, open **Build -> Firestore Database** and read the
+dropdown at the top of the page, next to the word *Database*.
+
+If it says anything other than `(default)`, add one more Vercel environment
+variable and redeploy:
+
+```
+FIREBASE_DATABASE_ID = ai-studio-51ee6c86-77b7-4d29-965f-172cbb5d1cc8
+```
+
+Copy the name exactly: no quotes, no trailing spaces.
+
+Two things to remember with a named database:
+
+- **Rules are per database.** On the **Rules** tab, use the database dropdown to
+  select the named database before pasting `firestore.rules` and publishing.
+  Rules published to `(default)` do not apply to it.
+- **Indexes are per database too**, so if Firestore asks for an index, follow the
+  link it prints rather than creating one by hand.
+
+The alternative is to create a second database actually called `(default)` and
+leave `FIREBASE_DATABASE_ID` unset. Both work; reusing the existing one is fewer
+moving parts.
 
 ## If sync will not connect
 
