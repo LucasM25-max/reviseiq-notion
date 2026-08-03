@@ -5,12 +5,13 @@ import {
   createChildPage,
   createSubjectPage,
   toggleExpanded,
+  confirmDeletePage,
   openCalendarView,
   openTodayView
 } from "../pages.js";
 import { startRevise } from "../render/revise.js";
 import { downloadBackup, readBackupFile, applyRestore, summarise } from "../backup.js";
-import { showConfirmModal } from "../overlays.js";
+import { showConfirmModal, showPageMenu } from "../overlays.js";
 import { renderSidebar } from "../render/sidebar.js";
 import { renderMain } from "../render/main.js";
 
@@ -30,8 +31,39 @@ export function initSidebarEvents() {
       createChildPage(addChild.dataset.addChild, "");
       return;
     }
+    const pageMenu = e.target.closest("[data-page-menu]");
+    if (pageMenu) {
+      e.stopPropagation();
+      const pid = pageMenu.dataset.pageMenu;
+      showPageMenu(pageMenu, pid, {
+        onAddChild: (id) => createChildPage(id, ""),
+        onRename: (id) => {
+          navigateTo(id);
+          const el = document.getElementById("page-title");
+          if (el) el.focus();
+        },
+        onDelete: (id) => confirmDeletePage(id)
+      });
+      return;
+    }
     const row = e.target.closest(".tree-row");
     if (row) navigateTo(row.dataset.pageId);
+  });
+
+  sidebarTree.addEventListener("contextmenu", (e) => {
+    const row = e.target.closest(".tree-row");
+    if (!row) return;
+    e.preventDefault();
+    const pid = row.dataset.pageId;
+    showPageMenu(row, pid, {
+      onAddChild: (id) => createChildPage(id, ""),
+      onRename: (id) => {
+        navigateTo(id);
+        const el = document.getElementById("page-title");
+        if (el) el.focus();
+      },
+      onDelete: (id) => confirmDeletePage(id)
+    });
   });
 
   document.getElementById("next-exam-slot").addEventListener("click", (e) => {

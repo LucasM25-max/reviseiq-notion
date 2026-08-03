@@ -128,6 +128,7 @@ const UI_PATHS = {
   flame: '<path d="M12 3.5c2.6 3 4 5.2 4 7a4 4 0 0 1-8 0c0-.9.3-1.8 1-2.8-.2 3 1.5 3.4 1.5 1.3 0-1.8.5-3.6 1.5-5.5Z"/><path d="M6.5 13.5a5.5 5.5 0 1 0 11 0c0 3-2 4.5-2 4.5"/>',
   page: '<path d="M6.5 3.8h6L18 9v11.2H6.5z"/><path d="M12.5 3.8V9H18"/>',
   drag: '<circle cx="9" cy="5.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="15" cy="5.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="9" cy="18.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="15" cy="18.5" r="1.5" fill="currentColor" stroke="none"/>',
+  dots: '<circle cx="5.5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
   heading1: '<path d="M4 6v12M12 6v12M4 12h8M16 18V8l-2.4 1.6"/>',
   heading2: '<path d="M4 6v12M11 6v12M4 12h7M15 9.5a2.5 2.5 0 0 1 5 0c0 2.5-5 3.5-5 8.5h5"/>',
   heading3: '<path d="M4 6v12M11 6v12M4 12h7M15 8.5h5l-3 3.5a2.8 2.8 0 1 1-2.2 4.6"/>'

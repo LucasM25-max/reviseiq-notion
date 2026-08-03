@@ -19,7 +19,7 @@
 .block-row.drag-over-bottom{box-shadow:inset 0 -2px 0 var(--accent-2);}
 .block-row.dragging{opacity:.35;}
 
-.rt{outline:none;font-size:15.5px;line-height:1.65;min-height:1.65em;}
+.rt{outline:none;font-size:15.5px;line-height:1.65;min-height:1.65em;caret-color:var(--accent);word-break:break-word;}
 .rt[data-placeholder]:empty::before{content:attr(data-placeholder);color:var(--text-faint);}
 .rt code, .code-block{font-family:var(--font-mono);}
 .rt code{background:var(--bg-soft);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:.9em;}
@@ -28,11 +28,25 @@
 .b-h2{font-size:21px;font-weight:700;margin-top:4px;}
 .b-h3{font-size:17.5px;font-weight:700;}
 .b-quote{border-left:3px solid var(--accent-2);padding-left:14px;font-style:italic;color:var(--text-soft);}
-.b-divider{border:none;border-top:1px solid var(--border-strong);margin:14px 0;}
+.b-divider{border:none;border-top:1px solid var(--border-strong);margin:14px 0;transition:border-color .12s ease;}
+.block-row[data-block-type="divider"] .block-content{padding-top:0;padding-bottom:0;}
+.block-row[data-block-type="divider"]:hover .b-divider{border-top-color:var(--accent-2);}
 
-.list-row{display:flex;gap:10px;align-items:flex-start;}
-.list-marker{flex-shrink:0;padding-top:4px;color:var(--text-soft);font-size:15px;width:20px;text-align:right;user-select:none;}
-.list-marker.bullet::before{content:"\2022";}
+.list-row{display:flex;gap:11px;align-items:flex-start;}
+.list-marker{
+  flex-shrink:0;width:20px;min-height:calc(15.5px * 1.65);display:flex;align-items:center;justify-content:flex-end;
+  color:var(--text-faint);font-size:14.5px;font-variant-numeric:tabular-nums;user-select:none;
+}
+/* A drawn dot lines up far better than the text bullet glyph. */
+.list-marker.bullet{justify-content:center;}
+.list-marker.bullet::before{
+  content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:.9;
+}
+/* Nested bullets get a hollow dot, so levels read at a glance. */
+.toggle-children .list-marker.bullet::before{background:none;border:1.6px solid var(--accent);opacity:.75;}
+.block-row[data-block-type="bulleted"] + .block-row[data-block-type="bulleted"],
+.block-row[data-block-type="numbered"] + .block-row[data-block-type="numbered"],
+.block-row[data-block-type="todo"] + .block-row[data-block-type="todo"]{margin-top:-1px;}
 .todo-check{
   margin-top:5px;width:16px;height:16px;border:1.5px solid var(--border-strong);border-radius:4px;
   flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--card-bg);cursor:pointer;

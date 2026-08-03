@@ -7,7 +7,14 @@
 .crumb.current{color:var(--text);font-weight:500;cursor:default;}
 .crumb.current:hover{background:none;}
 
-.page-header{margin-bottom:8px;}
+.page-header{margin-bottom:8px;position:relative;}
+.page-menu-btn{
+  position:absolute;top:0;right:0;width:30px;height:30px;border:none;background:none;
+  color:var(--text-faint);border-radius:var(--radius-s);display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .12s ease;
+}
+.page-header:hover .page-menu-btn,.page-menu-btn:focus{opacity:1;}
+.page-menu-btn:hover{background:var(--bg-soft);color:var(--text);}
 .page-icon-btn{
   font-size:44px;line-height:1;background:none;border:none;padding:2px 4px;margin-left:-4px;
   border-radius:var(--radius-s);

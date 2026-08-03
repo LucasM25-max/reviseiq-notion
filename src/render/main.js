@@ -54,6 +54,23 @@ export function renderMain() {
   renderToc();
 }
 
+/*
+ * Re-renders only the block list. Typing-speed edits (Enter, Backspace, adding
+ * or moving a block) use this instead of renderMain so the header, exam panel
+ * and quiz history are not rebuilt - and, importantly, so the page does not
+ * jump back to the top on every keystroke.
+ */
+export function renderBlocksOnly() {
+  const page = getPage(store.state.activePageId);
+  const list = document.getElementById("block-list");
+  if (!page || store.currentView !== "page" || !list || list.dataset.pageId !== page.id) {
+    renderMain();
+    return;
+  }
+  list.innerHTML = renderBlocksList(page.blocks);
+  renderToc();
+}
+
 export function renderEmptyState() {
   return (
     '<div class="empty-state">' +
@@ -194,7 +211,12 @@ export function renderPageHeader(page) {
     page.id +
     '">' +
     escapeHtml(page.title) +
-    "</div></div>"
+    "</div>" +
+    '<button class="page-menu-btn" data-page-menu="' +
+    page.id +
+    '" title="Page options">' +
+    ui("dots", 18) +
+    "</button></div>"
   );
 }
 

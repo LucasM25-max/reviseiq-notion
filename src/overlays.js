@@ -5,7 +5,7 @@ import { newPageObject } from "./model.js";
 import { escapeHtml, uid } from "./utils.js";
 import { ICON_KEYS, CALLOUT_ICON_KEYS, iconImg, ui } from "./icons.js";
 import { BLOCK_TYPES, matchBlockTypes } from "./blockTypes.js";
-import { updateBlockField, convertBlockType, duplicateBlock, deleteBlockById } from "./blocks.js";
+import { updateBlockField, convertBlockType, duplicateBlock, deleteBlockById, moveBlock } from "./blocks.js";
 import { scheduleSave } from "./storage.js";
 import { focusBlock } from "./focus.js";
 
@@ -26,7 +26,7 @@ export function initGlobalDismiss() {
   document.addEventListener("mousedown", (e) => {
     if (
       e.target.closest(
-        ".rt-toolbar,.float-menu,.ctx-menu,.link-popover,.icon-popover,.emoji-popover,.block-ctrl-btn,.page-icon-btn,.callout-icon,.tree-add"
+        ".rt-toolbar,.float-menu,.ctx-menu,.link-popover,.icon-popover,.emoji-popover,.block-ctrl-btn,.page-icon-btn,.callout-icon,.tree-add,.tree-menu,.page-menu-btn"
       )
     )
       return;
@@ -307,11 +307,28 @@ export function chooseSlashItem(blockId, bt) {
 
 /* ---------- block context menu ---------- */
 
+/* Places a floating menu under its button, nudged back on screen if needed. */
+function placeMenu(menu, anchorEl, width) {
+  const r = anchorEl.getBoundingClientRect();
+  const w = width || 190;
+  const left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
+  menu.style.position = "absolute";
+  menu.style.top = window.scrollY + r.bottom + 4 + "px";
+  menu.style.left = window.scrollX + left + "px";
+}
+
 export function showBlockMenu(anchorEl, blockId) {
+  closeAllFloating();
   const page = getPage(store.state.activePageId);
   const menu = document.createElement("div");
   menu.className = "ctx-menu";
   menu.innerHTML =
+    '<button data-act="up"><span class="ctx-icon flip">' +
+    ui("chevron", 15, 2.2) +
+    "</span> Move up</button>" +
+    '<button data-act="down"><span class="ctx-icon">' +
+    ui("chevron", 15, 2.2) +
+    "</span> Move down</button>" +
     '<button data-act="dup"><span class="ctx-icon">' +
     ui("copy", 15) +
     "</span> Duplicate</button>" +
@@ -319,28 +336,72 @@ export function showBlockMenu(anchorEl, blockId) {
     '<button data-act="del" class="danger"><span class="ctx-icon">' +
     ui("trash", 15) +
     "</span> Delete</button>";
-  const r = anchorEl.getBoundingClientRect();
-  menu.style.position = "absolute";
-  menu.style.top = window.scrollY + r.bottom + 4 + "px";
-  menu.style.left = window.scrollX + r.left + "px";
+  placeMenu(menu, anchorEl, 190);
   root().appendChild(menu);
 
   menu.addEventListener("mousedown", (e) => {
     e.preventDefault();
     const btn = e.target.closest("button");
     if (!btn) return;
-    if (btn.dataset.act === "dup") {
+    const act = btn.dataset.act;
+    if (act === "up" || act === "down") {
+      const c = findContainer(page.blocks, blockId);
+      if (c) {
+        const to = act === "up" ? c.idx - 1 : c.idx + 1;
+        if (to >= 0 && to < c.arr.length) {
+          moveBlock(c.arr, c.idx, to);
+          rerenderMain();
+          scheduleSave();
+        }
+      }
+    }
+    if (act === "dup") {
       duplicateBlock(page, blockId);
       rerenderMain();
       scheduleSave();
     }
-    if (btn.dataset.act === "del") {
+    if (act === "del") {
       const prev = deleteBlockById(page, blockId);
       rerenderMain();
       if (prev) focusBlock(prev, true);
       scheduleSave();
     }
     menu.remove();
+  });
+}
+
+/*
+ * Page options, shown from the sidebar row and the page header. The caller
+ * supplies the actions so this module never has to import pages.js, which
+ * imports this one.
+ */
+export function showPageMenu(anchorEl, pageId, handlers) {
+  closeAllFloating();
+  const menu = document.createElement("div");
+  menu.className = "ctx-menu";
+  menu.innerHTML =
+    '<button data-act="add"><span class="ctx-icon">' +
+    ui("plus", 15, 2.2) +
+    "</span> Add subpage</button>" +
+    '<button data-act="rename"><span class="ctx-icon">' +
+    ui("text", 15) +
+    "</span> Rename</button>" +
+    '<div class="ctx-divider"></div>' +
+    '<button data-act="del" class="danger"><span class="ctx-icon">' +
+    ui("trash", 15) +
+    "</span> Delete page</button>";
+  placeMenu(menu, anchorEl, 190);
+  root().appendChild(menu);
+
+  menu.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const act = btn.dataset.act;
+    menu.remove();
+    if (act === "add" && handlers.onAddChild) handlers.onAddChild(pageId);
+    if (act === "rename" && handlers.onRename) handlers.onRename(pageId);
+    if (act === "del" && handlers.onDelete) handlers.onDelete(pageId);
   });
 }
 

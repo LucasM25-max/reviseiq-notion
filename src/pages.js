@@ -5,7 +5,7 @@ import { uid } from "./utils.js";
 import { scheduleSave } from "./storage.js";
 import { renderSidebar } from "./render/sidebar.js";
 import { renderMain } from "./render/main.js";
-import { closeAllFloating } from "./overlays.js";
+import { closeAllFloating, showConfirmModal } from "./overlays.js";
 
 export function createSubjectPage(title) {
   const p = newPageObject({ type: "subject", title: title || "", parentId: null });
@@ -57,6 +57,28 @@ export function deletePage(pageId) {
       page.parentId && store.state.pages[page.parentId] ? page.parentId : store.state.rootPageIds[0] || null;
   }
   scheduleSave();
+}
+
+/* Delete with a confirmation. Used by the sidebar row menu and page header. */
+export function confirmDeletePage(pageId) {
+  const page = getPage(pageId);
+  if (!page) return;
+  const kids = getAllDescendantIds(pageId).length;
+  showConfirmModal({
+    title: "Delete this page?",
+    message:
+      'This deletes "' +
+      (page.title || "Untitled") +
+      '"' +
+      (kids > 0 ? " and its " + kids + " subpage" + (kids === 1 ? "" : "s") : "") +
+      ". You can get it back from a backup file, but not from inside the app.",
+    confirmLabel: "Delete",
+    onConfirm: () => {
+      deletePage(pageId);
+      renderSidebar();
+      renderMain();
+    }
+  });
 }
 
 export function renamePage(pageId, title) {

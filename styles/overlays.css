@@ -39,6 +39,7 @@
 .ctx-menu button.danger{color:var(--danger);}
 .ctx-menu button.danger:hover{background:var(--danger-soft);}
 .ctx-menu .ctx-divider{height:1px;background:var(--border);margin:5px 2px;}
+.ctx-menu .ctx-icon.flip svg{transform:rotate(180deg);}
 
 .link-popover{
   position:absolute;z-index:80;background:var(--card-bg);border:1px solid var(--border);

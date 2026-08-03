@@ -80,7 +80,28 @@ export function setSyncRerender(fn) {
   rerender = fn;
 }
 
+/* True while the caret is inside something the user is typing into. */
+function isTypingNow() {
+  if (typeof document === "undefined") return false;
+  const el = document.activeElement;
+  if (!el) return false;
+  return Boolean(el.isContentEditable) || el.tagName === "INPUT" || el.tagName === "TEXTAREA";
+}
+
+let repaintTimer = null;
+
 function repaint() {
+  // Redrawing the page under a live caret loses the cursor and feels broken.
+  // Nothing here is urgent, so wait for a pause in typing.
+  if (isTypingNow()) {
+    if (!repaintTimer) {
+      repaintTimer = setTimeout(() => {
+        repaintTimer = null;
+        repaint();
+      }, 1200);
+    }
+    return;
+  }
   if (typeof rerender === "function") {
     try {
       rerender();
@@ -698,6 +719,60 @@ export async function resolveInitialMerge(choice, remote) {
  * pushing local changes
  * ------------------------------------------------------------------ */
 
+/*
+ * Hash of a page's actual content, ignoring the bookkeeping fields that change
+ * on every save. Two copies differing only by updatedAt are the same page and
+ * must never produce a conflicted copy.
+ */
+function contentHash(page) {
+  if (!page || typeof page !== "object") return hashOf(page);
+  const copy = {};
+  for (const k in page) {
+    if (k === "updatedAt" || k === "syncedAt") continue;
+    copy[k] = page[k];
+  }
+  return hashOf(copy);
+}
+
+/* ---------- typing guard ---------- */
+
+const EDIT_GRACE_MS = 5000;
+let lastEditAt = 0;
+let deferredPages = {};
+let deferTimer = null;
+
+function isBeingEdited(id) {
+  if (Date.now() - lastEditAt > EDIT_GRACE_MS) return false;
+  return id === store.state.activePageId;
+}
+
+function flushDeferred() {
+  deferTimer = null;
+  const pending = deferredPages;
+  deferredPages = {};
+  let touched = 0;
+  for (const pid in pending) {
+    if (isBeingEdited(pid)) {
+      deferredPages[pid] = pending[pid];
+      continue;
+    }
+    if (applyRemotePage(pid, pending[pid], false)) touched += 1;
+  }
+  if (touched > 0) {
+    setState(normalizeState(store.state));
+    doSave();
+    saveBase();
+    repaint();
+  }
+  if (Object.keys(deferredPages).length > 0) deferTimer = setTimeout(flushDeferred, EDIT_GRACE_MS);
+}
+
+/* Holds a remote update until the user stops typing on that page. */
+function deferRemotePage(id, data) {
+  deferredPages[id] = data;
+  if (!deferTimer) deferTimer = setTimeout(flushDeferred, EDIT_GRACE_MS);
+}
+
 function pageDoc(page, now) {
   return {
     data: page,
@@ -723,6 +798,7 @@ async function commit(ops) {
 
 /** Debounced push. Called after every local save. */
 export function scheduleFlush() {
+  lastEditAt = Date.now();
   if (!ctx) return;
   if (flushTimer) clearTimeout(flushTimer);
   flushTimer = setTimeout(() => flushNow("debounce"), FLUSH_DEBOUNCE_MS);
@@ -896,9 +972,13 @@ function subscribe() {
         snap.docChanges().forEach((change) => {
           const data = change.doc.data();
           if (!data) return;
-          if (data.device === ctx.device && data.hash && ctx.base.pages[change.doc.id] === data.hash) return;
+          // Our own write echoing back before the commit has resolved. Applying
+          // it would race the text the user is still typing.
+          if (change.doc.metadata && change.doc.metadata.hasPendingWrites) return;
+          const sameDevice = data.device === ctx.device;
+          if (sameDevice && data.hash && ctx.base.pages[change.doc.id] === data.hash) return;
           if (typeof data.rev === "number") ctx.revs[change.doc.id] = Math.max(ctx.revs[change.doc.id] || 0, data.rev);
-          if (applyRemotePage(change.doc.id, data)) touched += 1;
+          if (applyRemotePage(change.doc.id, data, sameDevice)) touched += 1;
         });
         if (touched > 0) {
           setState(normalizeState(store.state));
@@ -992,7 +1072,7 @@ function subscribe() {
  * Merges one remote page document into local state.
  * @returns true when local state actually changed.
  */
-function applyRemotePage(id, data) {
+function applyRemotePage(id, data, sameDevice) {
   const s = store.state;
   const localPage = s.pages[id];
 
@@ -1024,6 +1104,11 @@ function applyRemotePage(id, data) {
     ctx.base.pages[id] = localHash;
     return false;
   }
+  // Same words, different save timestamp: there is nothing to merge.
+  if (contentHash(localPage) === contentHash(remotePage)) {
+    ctx.base.pages[id] = localHash;
+    return false;
+  }
 
   const baseHash = ctx.base.pages[id];
   if (baseHash === localHash) {
@@ -1031,6 +1116,17 @@ function applyRemotePage(id, data) {
     s.pages[id] = remotePage;
     ctx.base.pages[id] = remoteHash;
     return true;
+  }
+
+  // This device wrote both versions, so the "remote" one is just an earlier
+  // save of the text already on screen. Keep typing; the next flush wins.
+  if (sameDevice) return false;
+
+  // The page is being typed into right now. Forking it mid-sentence is never
+  // what the user wants, so hold the update until they pause.
+  if (isBeingEdited(id)) {
+    deferRemotePage(id, data);
+    return false;
   }
 
   // Both sides moved on. Keep the newer one and preserve the other.

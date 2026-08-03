@@ -10,13 +10,14 @@ import {
   moveBlock
 } from "../blocks.js";
 import { scheduleSave } from "../storage.js";
-import { renderMain } from "../render/main.js";
+import { renderMain, renderBlocksOnly } from "../render/main.js";
 import { renderSidebar } from "../render/sidebar.js";
 import {
   showConfirmModal,
   showIconPicker,
   showCalloutEmojiPicker,
   showBlockMenu,
+  showPageMenu,
   showSlashMenu,
   renderSlashItems,
   chooseSlashItem,
@@ -30,6 +31,8 @@ import { resolveInsight } from "../exam/insights.js";
 import {
   navigateTo,
   deletePage,
+  confirmDeletePage,
+  createChildPage,
   createSubjectPage,
   renamePage,
   setPageIcon,
@@ -39,6 +42,17 @@ import {
   removeExamDate
 } from "../pages.js";
 import { focusBlock, focusBlockAtOffset, isCursorAtStart, splitAtCursor, normalizeEmptyContent } from "../focus.js";
+
+/* Puts the caret at the end of the page title, for the Rename action. */
+function focusTitleEnd(el) {
+  el.focus();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
 
 export function initMainEvents() {
   const mainInner = document.getElementById("main-inner");
@@ -96,9 +110,24 @@ export function initMainEvents() {
     if (plusBtn) {
       const nb = newBlock("paragraph");
       insertBlockAfter(page, plusBtn.dataset.plus, nb);
-      renderMain();
+      renderBlocksOnly();
       focusBlock(nb.id, true);
       scheduleSave();
+      return;
+    }
+
+    const pageMenuBtn = e.target.closest("[data-page-menu]");
+    if (pageMenuBtn) {
+      e.stopPropagation();
+      const pid = pageMenuBtn.dataset.pageMenu;
+      showPageMenu(pageMenuBtn, pid, {
+        onAddChild: (id) => createChildPage(id, ""),
+        onRename: () => {
+          const el = document.getElementById("page-title");
+          if (el) focusTitleEnd(el);
+        },
+        onDelete: (id) => confirmDeletePage(id)
+      });
       return;
     }
 
@@ -119,7 +148,7 @@ export function initMainEvents() {
       const nb2 = newBlock("paragraph");
       if (last) insertBlockAfter(page, last.id, nb2);
       else page.blocks.push(nb2);
-      renderMain();
+      renderBlocksOnly();
       focusBlock(nb2.id, true);
       scheduleSave();
       return;
@@ -471,7 +500,7 @@ export function initMainEvents() {
         const nb = newBlock("paragraph");
         nb.content = afterHtml;
         block.children.unshift(nb);
-        renderMain();
+        renderBlocksOnly();
         focusBlock(nb.id, false);
         scheduleSave();
         return;
@@ -481,7 +510,7 @@ export function initMainEvents() {
       const continueType = blockType === "bulleted" || blockType === "numbered" || blockType === "todo" ? blockType : "paragraph";
       if (continueType !== "paragraph" && beforeHtml === "" && afterHtml === "") {
         convertBlockType(page, blockId, "paragraph");
-        renderMain();
+        renderBlocksOnly();
         focusBlock(blockId, false);
         scheduleSave();
         return;
@@ -489,7 +518,7 @@ export function initMainEvents() {
       const nb2 = newBlock(continueType);
       nb2.content = afterHtml;
       insertBlockAfter(page, blockId, nb2);
-      renderMain();
+      renderBlocksOnly();
       focusBlock(nb2.id, false);
       scheduleSave();
       return;
@@ -504,7 +533,7 @@ export function initMainEvents() {
       if (blockType !== "paragraph" && isEmpty) {
         e.preventDefault();
         convertBlockType(page, blockId, "paragraph");
-        renderMain();
+        renderBlocksOnly();
         focusBlock(blockId, false);
         scheduleSave();
         return;
@@ -518,7 +547,7 @@ export function initMainEvents() {
         const prevLen = (prevBlock.content || "").replace(/<[^>]+>/g, "").length;
         prevBlock.content = (prevBlock.content || "") + (block.content || "");
         c.arr.splice(c.idx, 1);
-        renderMain();
+        renderBlocksOnly();
         focusBlockAtOffset(prevBlock.id, prevLen);
         scheduleSave();
         return;
@@ -527,7 +556,7 @@ export function initMainEvents() {
         e.preventDefault();
         c.arr.splice(c.idx, 1);
         if (page.blocks.length === 0) page.blocks.push(newBlock("paragraph"));
-        renderMain();
+        renderBlocksOnly();
         focusBlock(prevBlock.id, true);
         scheduleSave();
       }
@@ -729,7 +758,7 @@ export function initMainEvents() {
     if (fromIdx < toIdx) toIdx -= 1;
     moveBlock(c.arr, fromIdx, toIdx);
     dragState = null;
-    renderMain();
+    renderBlocksOnly();
     scheduleSave();
   });
 

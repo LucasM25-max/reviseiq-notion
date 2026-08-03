@@ -100,6 +100,11 @@ function renderSidebarNode(pageId, depth) {
     '" title="Add subpage">' +
     ui("plus", 12, 2.4) +
     "</button>" +
+    '<button class="tree-menu" data-page-menu="' +
+    pageId +
+    '" title="Page options">' +
+    ui("dots", 13) +
+    "</button>" +
     "</div>" +
     '<div class="tree-children">';
 

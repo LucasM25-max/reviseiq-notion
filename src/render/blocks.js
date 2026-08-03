@@ -146,7 +146,9 @@ export function renderBlock(block, numberIndex) {
       inner = "";
   }
 
-  const showControls = block.type !== "divider";
+  // Dividers get the same controls as every other block: without them there
+  // is no way to move or delete one.
+  const showControls = true;
   return (
     '<div class="block-row" data-block-id="' +
     block.id +
