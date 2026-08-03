@@ -16,7 +16,7 @@ import { store, setState } from "../state.js";
 import { normalizeState } from "../model.js";
 import { doSave, setSaveStatus } from "../storage.js";
 import { uid as newId } from "../utils.js";
-import { getFirebase } from "./firebase.js";
+import { getFirebase, switchToLongPolling, isLongPolling, probeFirestore } from "./firebase.js";
 import { runImageMigration } from "./images.js";
 
 const DEVICE_KEY = "reviseiq_device_id";
@@ -143,8 +143,74 @@ function describeCloudError(e) {
   return "Sync paused \u2014 will retry";
 }
 
+function isUnavailable(e) {
+  const code = String((e && (e.code || e.name)) || "");
+  const msg = String((e && e.message) || "");
+  return code.indexOf("unavailable") > -1 || code.indexOf("deadline") > -1 || msg.indexOf("timed out") > -1;
+}
+
+/*
+ * "unavailable" almost always means the network is eating Firestore's
+ * streaming connection rather than anything being wrong with the project.
+ * Switch that device to long polling and try again before blaming anyone.
+ */
+async function recoverTransport() {
+  if (!ctx || ctx.transportSwitched || isLongPolling()) return false;
+  ctx.transportSwitched = true;
+  status("syncing", "Reconnecting\u2026");
+  const fb = await switchToLongPolling();
+  if (!fb || !fb.ok) return false;
+  ctx.fb = fb;
+  resubscribe();
+  return true;
+}
+
+function resubscribe() {
+  if (!ctx) return;
+  ctx.unsubs.forEach((fn) => {
+    try {
+      fn();
+    } catch (e) {
+      /* ignore */
+    }
+  });
+  ctx.unsubs = [];
+  subscribe();
+}
+
+/* Asks Firestore over plain HTTPS what is actually wrong, then says so. */
+let diagnosing = false;
+async function diagnoseAndReport(e) {
+  if (diagnosing) return;
+  diagnosing = true;
+  try {
+    const probe = await probeFirestore();
+    console.warn("[sync] diagnosis: " + probe.reason + " \u2014 " + probe.message, e || "");
+    if (probe.reason === "ok" || probe.reason === "ok-empty") {
+      // Backend fine, transport unhappy: keep the queued writes going.
+      status("pending", "Saved here \u2014 still reaching the cloud");
+    } else {
+      status("error", probe.message);
+    }
+  } catch (err) {
+    status("error", describeCloudError(e));
+  } finally {
+    diagnosing = false;
+  }
+}
+
 function reportPushError(e) {
   console.warn("[sync] push failed", e);
+  if (isUnavailable(e)) {
+    recoverTransport().then((switched) => {
+      if (switched) {
+        flushNow("transport-retry");
+        return;
+      }
+      diagnoseAndReport(e);
+    });
+    return;
+  }
   status("error", describeCloudError(e));
 }
 
@@ -272,7 +338,8 @@ export async function startSync(user) {
     revs: {},
     unsubs: [],
     applying: false,
-    device: deviceId()
+    device: deviceId(),
+    transportSwitched: false
   };
 
   status("syncing", "Connecting\u2026");
@@ -310,8 +377,28 @@ export async function startSync(user) {
       ]);
     } catch (e) {
       console.warn("[sync] initial read failed", e);
-      status("error", describeCloudError(e));
-      return { ok: false, error: e && e.message };
+      // One automatic retry over long polling before we give up.
+      let retried = null;
+      if (isUnavailable(e) && (await recoverTransport())) {
+        try {
+          retried = await Promise.race([
+            fetchEverything(),
+            delay(READ_TIMEOUT_MS).then(() => {
+              const err = new Error("timed out reading from Firestore");
+              err.code = "unavailable";
+              throw err;
+            })
+          ]);
+        } catch (e2) {
+          console.warn("[sync] retry over long polling failed", e2);
+          retried = null;
+        }
+      }
+      if (!retried) {
+        diagnoseAndReport(e);
+        return { ok: false, error: e && e.message };
+      }
+      remote = retried;
     }
     const remoteCount = Object.keys(remote.pages).length;
     const localCount = Object.keys(store.state.pages || {}).length;
@@ -762,6 +849,11 @@ export async function flushNow(reason) {
   if (outcome === "slow") {
     // The write is queued in Firestore's offline mirror and will go through.
     status("pending", "Saved here \u2014 still reaching the cloud");
+    // A commit that never settles usually means the streaming transport is
+    // blocked, so move this device onto long polling and push again.
+    recoverTransport().then((switched) => {
+      if (switched) flushNow("transport-retry");
+    });
     return { ok: false, pending: true };
   }
   if (outcome) {
@@ -817,6 +909,12 @@ function subscribe() {
       },
       (err) => {
         console.warn("[sync] page listener error", err);
+        if (isUnavailable(err)) {
+          recoverTransport().then((switched) => {
+            if (!switched) diagnoseAndReport(err);
+          });
+          return;
+        }
         status("error", describeCloudError(err));
       }
     )
@@ -1048,6 +1146,8 @@ if (typeof window !== "undefined") {
             localPages: Object.keys(store.state.pages || {}).length
           }
         : null,
-    flush: (reason) => flushNow(reason || "manual")
+    flush: (reason) => flushNow(reason || "manual"),
+    diagnose: () => probeFirestore(),
+    longPolling: () => isLongPolling()
   };
 }

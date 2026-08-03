@@ -126,6 +126,44 @@ One student sits far inside the free Spark plan: 1 GiB stored, 50k reads and
 20k writes a day, 5 GB of Storage. Writes are batched and debounced, so a heavy
 revision session is a few hundred writes, not thousands.
 
+## If sync will not connect
+
+Open the site, press F12 (or long-press > Inspect on mobile) and use the console:
+
+```js
+reviseiqSync.status()       // what the sidebar is showing, and why
+reviseiqSync.diagnose()     // asks Firestore over plain HTTPS what is wrong
+reviseiqSync.state()        // uid, pages tracked, whether it has ever synced
+reviseiqSync.longPolling()  // true if it fell back to the slow transport
+reviseiqSync.flush()        // force a push right now
+```
+
+`diagnose()` bypasses the streaming SDK entirely, so it can tell the difference
+between the four things that all look identical from inside the app:
+
+| `reason` | What it means | Fix |
+| --- | --- | --- |
+| `ok` | Firestore is fine; the network is interfering with the streaming connection | Nothing - the app switches itself to long polling |
+| `no-database` | The project has no Firestore database | Build > Firestore Database > Create database, Native mode, `eur3` |
+| `api-disabled` | The Cloud Firestore API is switched off for the project | Enable **Cloud Firestore API** in the Google Cloud console, then reload |
+| `datastore-mode` | The database exists but is a Datastore-mode one | Create a Firestore **Native mode** database instead |
+| `rules` | The backend is reachable but the rules reject you | Publish `firestore.rules` |
+| `network-blocked` | The network is blocking `firestore.googleapis.com` outright | Try mobile data or a different wifi |
+
+Projects created automatically by Google AI Studio (names like
+`gen-lang-client-...`) usually have **no Firestore database at all** until you
+create one, which is by far the most common cause of a stubborn
+"Can't reach Firestore".
+
+### The long-polling fallback
+
+Firestore normally uses a streaming connection that school wifi, filtered
+networks and some proxies quietly block. When that happens ReviseIQ notices,
+reconnects using ordinary long polling, retries the push, and remembers the
+choice on that device so later visits connect straight away. To reset it after
+moving to a normal network, clear the `reviseiq_force_long_polling` key in
+Application > Local Storage and reload.
+
 ## Troubleshooting
 
 | Symptom | Fix |
