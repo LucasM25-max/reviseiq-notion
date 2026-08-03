@@ -64,8 +64,14 @@ export function databaseIdNow() {
 
 function makeDb(fsMod, app, forceLongPolling, databaseId) {
   const named = databaseId && databaseId !== DEFAULT_DB;
+  // Page objects legitimately carry `undefined` fields (e.g. examBoard on a
+  // non-subject page). Firestore's default writeBatch/setDoc rejects any
+  // undefined field with an invalid-argument error - that surfaced as a
+  // "Sync rejected this page" retry loop that never resolves. Telling
+  // Firestore to just drop those fields fixes it at the source.
   const options = {
-    localCache: fsMod.persistentLocalCache({ tabManager: fsMod.persistentMultipleTabManager() })
+    localCache: fsMod.persistentLocalCache({ tabManager: fsMod.persistentMultipleTabManager() }),
+    ignoreUndefinedProperties: true
   };
   if (forceLongPolling) {
     // Deliberate, not a guess: stream detection has already failed here.
@@ -82,8 +88,8 @@ function makeDb(fsMod, app, forceLongPolling, databaseId) {
     // Already initialised (hot reload) or IndexedDB blocked (private mode).
     try {
       const bare = forceLongPolling
-        ? { experimentalForceLongPolling: true, useFetchStreams: false }
-        : { experimentalAutoDetectLongPolling: true };
+        ? { experimentalForceLongPolling: true, useFetchStreams: false, ignoreUndefinedProperties: true }
+        : { experimentalAutoDetectLongPolling: true, ignoreUndefinedProperties: true };
       return named
         ? fsMod.initializeFirestore(app, bare, databaseId)
         : fsMod.initializeFirestore(app, bare);
