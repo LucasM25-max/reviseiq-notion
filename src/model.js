@@ -75,7 +75,17 @@ export function newPageObject(opts) {
 }
 
 export function createDefaultState() {
-  return { pages: {}, rootPageIds: [], activePageId: null, expanded: {}, srs: {}, reviewLog: {} };
+  return {
+    pages: {},
+    rootPageIds: [],
+    activePageId: null,
+    expanded: {},
+    srs: {},
+    reviewLog: {},
+    // Mock exam attempts, keyed by id, and the examiner feedback kept from them.
+    tests: {},
+    insights: []
+  };
 }
 
 /* Older saves stored emoji icons; convert them to the custom icon set. */
@@ -135,6 +145,8 @@ export function normalizeState(obj) {
       if (obj.expanded && typeof obj.expanded === "object") s.expanded = obj.expanded;
       if (obj.srs && typeof obj.srs === "object") s.srs = obj.srs;
       if (obj.reviewLog && typeof obj.reviewLog === "object") s.reviewLog = obj.reviewLog;
+      if (obj.tests && typeof obj.tests === "object") s.tests = obj.tests;
+      if (Array.isArray(obj.insights)) s.insights = obj.insights;
     }
   } catch (e) {
     /* ignore malformed input */

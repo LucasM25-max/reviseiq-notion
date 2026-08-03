@@ -24,6 +24,8 @@ import {
   removeToolbar
 } from "../overlays.js";
 import { startRevise } from "../render/revise.js";
+import { openTestSetup, resumeAttempt, openResults } from "../exam/session.js";
+import { resolveInsight } from "../exam/insights.js";
 import {
   navigateTo,
   deletePage,
@@ -125,6 +127,34 @@ export function initMainEvents() {
     const reviseBtn = e.target.closest("#revise-page-btn");
     if (reviseBtn) {
       startRevise({ type: "page", pageId: reviseBtn.dataset.pageId });
+      return;
+    }
+
+    const testBtn = e.target.closest("#test-me-btn");
+    if (testBtn) {
+      openTestSetup(testBtn.dataset.pageId);
+      return;
+    }
+
+    const testAct = e.target.closest("[data-test-act]");
+    if (testAct) {
+      if (testAct.dataset.testAct === "resume") resumeAttempt(testAct.dataset.testId);
+      else openResults(testAct.dataset.testId);
+      return;
+    }
+
+    const insightAct = e.target.closest("[data-insight-act]");
+    if (insightAct) {
+      const act = insightAct.dataset.insightAct;
+      if (act === "resolve") {
+        resolveInsight(insightAct.dataset.insightId);
+        scheduleSave();
+        renderMain();
+      } else if (act === "expand") {
+        const section = insightAct.closest(".feedback-section");
+        if (section) section.classList.add("is-expanded");
+        insightAct.remove();
+      }
       return;
     }
 

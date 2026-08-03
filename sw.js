@@ -7,7 +7,7 @@
  *   - same-origin assets: stale-while-revalidate (instant load, quiet update)
  * Bump CACHE_VERSION whenever the shell changes so old caches are dropped.
  */
-const CACHE_VERSION = "reviseiq-v3";
+const CACHE_VERSION = "reviseiq-v4";
 const SHELL = [
   "/",
   "/index.html",
@@ -24,6 +24,7 @@ const SHELL = [
   "/styles/toc.css",
   "/styles/revise.css",
   "/styles/today.css",
+  "/styles/exam.css",
   "/styles/mobile.css",
   "/src/main.js",
   "/src/state.js",
@@ -47,6 +48,11 @@ const SHELL = [
   "/src/render/toc.js",
   "/src/render/revise.js",
   "/src/render/today.js",
+  "/src/render/insights.js",
+  "/src/exam/aqaHistory.js",
+  "/src/exam/notes.js",
+  "/src/exam/insights.js",
+  "/src/exam/session.js",
   "/src/events/mainEvents.js",
   "/src/events/sidebarEvents.js",
   "/src/events/mobileEvents.js"
@@ -82,6 +88,9 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+
+  // Never cache or intercept the exam API - it must always hit the server.
+  if (url.pathname.startsWith("/api/")) return;
 
   if (req.mode === "navigate") {
     event.respondWith(

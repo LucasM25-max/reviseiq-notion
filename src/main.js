@@ -7,6 +7,7 @@ import { initGlobalDismiss, setRerenderMain } from "./overlays.js";
 import { initMainEvents } from "./events/mainEvents.js";
 import { initSidebarEvents } from "./events/sidebarEvents.js";
 import { setReviseCloseHandler, startRevise } from "./render/revise.js";
+import { setTestCloseHandler } from "./exam/session.js";
 import { navigateTo, openTodayView } from "./pages.js";
 import { initMobileEvents } from "./events/mobileEvents.js";
 import { registerServiceWorker, initConnectivityNotices } from "./pwa.js";
@@ -18,6 +19,10 @@ function boot() {
       navigateTo(pageId);
       return;
     }
+    renderSidebar();
+    renderMain();
+  });
+  setTestCloseHandler(() => {
     renderSidebar();
     renderMain();
   });

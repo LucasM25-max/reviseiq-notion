@@ -105,3 +105,16 @@ Drop the project folder onto the Vercel dashboard’s new-project area.
   to stay within the browser storage budget.
 - To back up, run `localStorage.getItem("reviseiq_state_v1")` in the console and
   save the JSON.
+
+## Mock exams (Test me)
+
+AQA GCSE History (8145) pages get a **Test me** button. It generates a full one-hour section paper from your notes, times it, marks it against AQA-style level descriptors (including SPaG where the real paper awards it), and files the examiner's focus areas and missed points into your feedback list.
+
+The two serverless routes (`api/test/generate.js`, `api/test/mark.js`) call Gemini, so the deployment needs one environment variable:
+
+| Name | Value |
+| --- | --- |
+| `GEMINI_API_KEY` | Your Google AI Studio API key |
+
+In Vercel: **Settings -> Environment Variables -> Add** (Production, Preview and Development), then redeploy. The model used is `gemini-flash-latest`.
+

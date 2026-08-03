@@ -8,6 +8,8 @@ import { renderTodayView } from "./today.js";
 import { renderToc } from "./toc.js";
 import { iconImg, ui } from "../icons.js";
 import { cardsForPage, isDue } from "../srs.js";
+import { testEligibility } from "../exam/session.js";
+import { renderFeedbackSection, renderAttemptsSection } from "./insights.js";
 
 export function renderMain() {
   const root = document.getElementById("main-inner");
@@ -41,6 +43,9 @@ export function renderMain() {
   // Invisible click target: clicking the space under the last block starts a
   // new paragraph, without adding another visible "add a block" row.
   html += '<div class="page-tail" id="page-tail"></div>';
+  // Mock exam history and any outstanding examiner feedback for this page.
+  html += renderAttemptsSection(page.id);
+  html += renderFeedbackSection({ pageId: page.id, title: "Exam feedback for this page", limit: 8 });
   root.innerHTML = html;
   root.scrollTop = 0;
   document.getElementById("main").scrollTop = 0;
@@ -60,14 +65,51 @@ export function renderEmptyState() {
   );
 }
 
-/* Revise entry point for the current page and everything nested under it. */
+/*
+ * Actions above the notes: revise the flashcards in this section, and - for
+ * AQA History pages only - sit a timed mock exam written from these notes.
+ */
 export function renderPageActions(page) {
+  const revise = renderReviseButton(page);
+  const test = renderTestButton(page);
+  if (!revise && !test) return "";
+  return '<div class="page-actions">' + revise + test + "</div>";
+}
+
+/*
+ * The Test me button appears only where the prompt actually exists: a page
+ * whose subject is History with AQA as the exam board. Everywhere else there
+ * is no button at all, rather than a button that produces a bad paper.
+ */
+function renderTestButton(page) {
+  const el = testEligibility(page.id);
+  if (!el) return "";
+  if (!el.enough) {
+    return (
+      '<button class="btn-test is-disabled" disabled title="Add more notes first \u2014 ' +
+      el.words +
+      ' words so far">' +
+      ui("target", 15) +
+      "<span>Test me</span></button>"
+    );
+  }
+  return (
+    '<button class="btn-test" id="test-me-btn" data-page-id="' +
+    page.id +
+    '" title="Sit a timed AQA-style mock written from these notes">' +
+    ui("target", 15) +
+    "<span>Test me</span>" +
+    '<span class="test-badge">AQA</span>' +
+    "</button>"
+  );
+}
+
+function renderReviseButton(page) {
   const cards = cardsForPage(page.id);
   if (!cards.length) return "";
   const due = cards.filter((c) => isDue(c.id)).length;
   const quiet = due === 0;
   return (
-    '<div class="page-actions">' +
     '<button class="btn-revise' +
     (quiet ? " is-quiet" : "") +
     '" id="revise-page-btn" data-page-id="' +
@@ -79,8 +121,7 @@ export function renderPageActions(page) {
     '<span class="revise-badge">' +
     (due > 0 ? due + " due" : cards.length + " card" + (cards.length === 1 ? "" : "s")) +
     "</span>" +
-    "</button>" +
-    "</div>"
+    "</button>"
   );
 }
 

@@ -1,7 +1,15 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "functions": {
+    "api/test/generate.js": { "maxDuration": 60 },
+    "api/test/mark.js": { "maxDuration": 60 }
+  },
   "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
+    },
     {
       "source": "/sw.js",
       "headers": [
