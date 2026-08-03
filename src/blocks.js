@@ -44,7 +44,7 @@ export function duplicateBlock(page, blockId) {
   const clone = JSON.parse(JSON.stringify(c.arr[c.idx]));
   (function assignNewIds(bl) {
     bl.id = uid();
-    if (bl.type === "toggle" && Array.isArray(bl.children)) bl.children.forEach(assignNewIds);
+    if ((bl.type === "toggle" || bl.type === "callout") && Array.isArray(bl.children)) bl.children.forEach(assignNewIds);
   })(clone);
   c.arr.splice(c.idx + 1, 0, clone);
 }
@@ -60,6 +60,10 @@ export function containerKeyFor(page, blockId) {
       if (blocks[i].id === blockId) return key;
       if (blocks[i].type === "toggle") {
         const f = walk(blocks[i].children, "toggle:" + blocks[i].id);
+        if (f) return f;
+      }
+      if (blocks[i].type === "callout") {
+        const f = walk(Array.isArray(blocks[i].children) ? blocks[i].children : [], "callout:" + blocks[i].id);
         if (f) return f;
       }
     }

@@ -337,7 +337,7 @@ export function initMainEvents() {
       const tb4 = findBlockById(page.blocks, tDelCol.dataset.tableDelCol);
       if (tb4 && tb4.rows[0] && tb4.rows[0].length > 1) {
         tb4.rows.forEach((r) => r.pop());
-        renderMain();
+        renderBlocksOnly();
         scheduleSave();
       }
     }
@@ -506,6 +506,25 @@ export function initMainEvents() {
         return;
       }
 
+      // Enter in callout header: move into / create children
+      if (blockType === "callout" && t.closest(".b-callout-header")) {
+        e.preventDefault();
+        updateBlockField(page, blockId, { content: beforeHtml });
+        if (!Array.isArray(block.children)) block.children = [];
+        if (block.children.length > 0) {
+          renderBlocksOnly();
+          focusBlock(block.children[0].id, false);
+        } else {
+          const nbc = newBlock("paragraph");
+          nbc.content = afterHtml;
+          block.children.push(nbc);
+          renderBlocksOnly();
+          focusBlock(nbc.id, false);
+        }
+        scheduleSave();
+        return;
+      }
+
       updateBlockField(page, blockId, { content: beforeHtml });
       const continueType = blockType === "bulleted" || blockType === "numbered" || blockType === "todo" ? blockType : "paragraph";
       if (continueType !== "paragraph" && beforeHtml === "" && afterHtml === "") {
@@ -529,6 +548,23 @@ export function initMainEvents() {
       const c = findContainer(page.blocks, blockId);
       if (!c) return;
       const isEmpty = blockType === "toggle" ? (block.summary || "") === "" : (block.content || "") === "";
+
+      // Backspace at start of first block in a callout: escape to the callout header.
+      if (c && c.idx === 0) {
+        let _calloutPar = null;
+        for (let _bi = 0; _bi < page.blocks.length; _bi++) {
+          const _bl = page.blocks[_bi];
+          if (_bl.type === "callout" && Array.isArray(_bl.children) && findContainer(_bl.children, blockId)) {
+            _calloutPar = _bl; break;
+          }
+        }
+        if (_calloutPar) {
+          e.preventDefault();
+          const _hdr = document.querySelector(".block-row[data-block-id='" + _calloutPar.id + "'] .b-callout-header .rt");
+          if (_hdr) { _hdr.focus(); const _r = document.createRange(); _r.selectNodeContents(_hdr); _r.collapse(false); const _sel = window.getSelection(); _sel.removeAllRanges(); _sel.addRange(_r); }
+          return;
+        }
+      }
 
       if (blockType !== "paragraph" && isEmpty) {
         e.preventDefault();

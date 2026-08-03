@@ -364,5 +364,9 @@
   .tree-menu,
   .tree-add{display:flex;}
   .page-menu-btn{opacity:1;}
+  /* Show drag handle always on touch so users can reorder without hover. */
   .block-row > .block-controls{opacity:1;}
+  /* But keep the + button invisible until the row is tapped/focused. */
+  .block-ctrl-btn.plus{opacity:0 !important;}
+  .block-row:focus-within .block-ctrl-btn.plus{opacity:1 !important;}
 }

@@ -26,6 +26,7 @@ export function newBlock(type) {
     case "callout":
       b.content = "";
       b.icon = DEFAULT_CALLOUT_ICON;
+      b.children = [];
       break;
     case "code":
       b.content = "";
@@ -95,7 +96,11 @@ function migrateBlockIcons(blocks) {
   if (!Array.isArray(blocks)) return;
   blocks.forEach((b) => {
     if (!b || typeof b !== "object") return;
-    if (b.type === "callout") b.icon = normalizeIconKey(b.icon, DEFAULT_CALLOUT_ICON);
+    if (b.type === "callout") {
+      b.icon = normalizeIconKey(b.icon, DEFAULT_CALLOUT_ICON);
+      if (!Array.isArray(b.children)) b.children = [];
+      migrateBlockIcons(b.children);
+    }
     if (b.type === "toggle") migrateBlockIcons(b.children);
   });
 }
@@ -105,7 +110,7 @@ function collectLinkedChildIds(blocks, set) {
   blocks.forEach((b) => {
     if (!b || typeof b !== "object") return;
     if (b.type === "page" && b.childPageId) set.add(b.childPageId);
-    if (b.type === "toggle") collectLinkedChildIds(b.children, set);
+    if (b.type === "toggle" || b.type === "callout") collectLinkedChildIds(Array.isArray(b.children) ? b.children : [], set);
   });
 }
 

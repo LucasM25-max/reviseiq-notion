@@ -60,16 +60,26 @@ export function renderBlock(block, numberIndex) {
         block.content +
         "</div></div>";
       break;
-    case "callout":
+        case "callout": {
+      const calloutKids = Array.isArray(block.children) ? block.children : [];
+      const calloutBody = calloutKids.length
+        ? renderBlocksList(calloutKids)
+        : '<div class="add-block-row"><div class="add-block-ghost" data-add-in-callout="' + block.id + '">'  +
+          ui('plus', 13, 2.2) + ' Add a block</div></div>';
       inner =
-        '<div class="b-callout"><button type="button" class="callout-icon" data-callout-icon="' +
-        block.id +
-        '" title="Change icon">' +
+        '<div class="b-callout-wrap">'  +
+        '<div class="b-callout-header">'  +
+        '<button type="button" class="callout-icon" data-callout-icon="' + block.id + '" title="Change icon">'  +
         iconImg(block.icon, 19, "", DEFAULT_CALLOUT_ICON) +
-        '</button><div class="rt" contenteditable="true" data-placeholder="Note it down..." style="flex:1;">' +
+        '</button>'  +
+        '<div class="rt" contenteditable="true" data-placeholder="Callout title…" style="flex:1;font-weight:600;">'  +
         block.content +
-        "</div></div>";
+        '</div></div>'  +
+        '<div class="callout-children" data-callout-children="' + block.id + '">'  +
+        calloutBody +
+        '</div></div>';
       break;
+    }
     case "divider":
       inner = '<hr class="b-divider" />';
       break;

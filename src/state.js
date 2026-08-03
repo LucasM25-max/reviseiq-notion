@@ -64,8 +64,9 @@ export function getAncestors(pageId) {
 export function findContainer(blocks, blockId) {
   for (let i = 0; i < blocks.length; i++) {
     if (blocks[i].id === blockId) return { arr: blocks, idx: i };
-    if (blocks[i].type === "toggle") {
-      const found = findContainer(blocks[i].children, blockId);
+    if (blocks[i].type === "toggle" || blocks[i].type === "callout") {
+      const kids = Array.isArray(blocks[i].children) ? blocks[i].children : [];
+      const found = findContainer(kids, blockId);
       if (found) return found;
     }
   }
@@ -81,8 +82,9 @@ export function findPageBlockRef(page, childPageId) {
   function walk(blocks) {
     for (let i = 0; i < blocks.length; i++) {
       if (blocks[i].type === "page" && blocks[i].childPageId === childPageId) return { arr: blocks, idx: i };
-      if (blocks[i].type === "toggle") {
-        const f = walk(blocks[i].children);
+      if (blocks[i].type === "toggle" || blocks[i].type === "callout") {
+        const kids = Array.isArray(blocks[i].children) ? blocks[i].children : [];
+        const f = walk(kids);
         if (f) return f;
       }
     }
