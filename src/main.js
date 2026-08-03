@@ -2,7 +2,7 @@
 import { store, getPage } from "./state.js";
 import { loadState, initAutosave } from "./storage.js";
 import { renderSidebar } from "./render/sidebar.js";
-import { renderMain } from "./render/main.js";
+import { renderMain, renderBlocksOnly } from "./render/main.js";
 import { initGlobalDismiss, setRerenderMain } from "./overlays.js";
 import { initMainEvents } from "./events/mainEvents.js";
 import { initSidebarEvents } from "./events/sidebarEvents.js";
@@ -15,7 +15,12 @@ import { registerServiceWorker, initConnectivityNotices } from "./pwa.js";
 import { initCloud } from "./cloud/index.js";
 
 function boot() {
-  setRerenderMain(renderMain);
+  // The slash menu (convert block type) and block context menu
+  // (move/duplicate/delete) share this hook. Using the lightweight
+  // block-list renderer here keeps the user's scroll position instead of
+  // jumping back to the top of the page every time a block is added,
+  // converted, moved, duplicated, or deleted.
+  setRerenderMain(renderBlocksOnly);
   setReviseCloseHandler((pageId) => {
     if (pageId && getPage(pageId)) {
       navigateTo(pageId);

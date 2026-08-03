@@ -207,8 +207,22 @@ export function initMainEvents() {
       if (tb) {
         const nb3 = newBlock("paragraph");
         tb.children.push(nb3);
-        renderMain();
+        renderBlocksOnly();
         focusBlock(nb3.id, true);
+        scheduleSave();
+      }
+      return;
+    }
+
+    const addInCallout = e.target.closest("[data-add-in-callout]");
+    if (addInCallout) {
+      const cb = findBlockById(page.blocks, addInCallout.dataset.addInCallout);
+      if (cb) {
+        if (!Array.isArray(cb.children)) cb.children = [];
+        const nb4 = newBlock("paragraph");
+        cb.children.push(nb4);
+        renderBlocksOnly();
+        focusBlock(nb4.id, true);
         scheduleSave();
       }
       return;
