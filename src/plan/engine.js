@@ -259,6 +259,17 @@ export function passOffsets(windowDays, count) {
 
 /* ---------- task shapes ---------- */
 
+/* Calibration learnt from how long tasks really take, injected by the store at
+   the start of every build. Papers are never calibrated: a paper takes as long
+   as the real paper takes. */
+let pace = {};
+
+function applyPace(kind, minutes) {
+  const f = pace[kind];
+  if (!f || kind === "test") return minutes;
+  return Math.max(5, Math.round((minutes * f) / 5) * 5);
+}
+
 function kindForPass(u, index, count, daysBeforeExam) {
   const last = index === count - 1;
   if (last && u.examDays !== null && daysBeforeExam <= 7) return "final";
@@ -270,6 +281,10 @@ function kindForPass(u, index, count, daysBeforeExam) {
 }
 
 function minutesForTask(kind, u) {
+  return applyPace(kind, baseMinutesForTask(kind, u));
+}
+
+function baseMinutesForTask(kind, u) {
   if (kind === "due") return estimateMinutes(u.dueCount);
   if (kind === "cards") return estimateMinutes(Math.max(4, u.cards));
   if (kind === "quiz") return 15;
@@ -373,6 +388,8 @@ export function capacityFor(settings, key) {
  */
 export function buildSchedule(settings, startKey) {
   const start = startKey || todayKey();
+  pace = settings && settings.pace && typeof settings.pace === "object" ? settings.pace : {};
+  const narrow = !!(settings && settings.narrowScope);
   const units = topicUnits();
   const examDays = examDayMap(start);
 
@@ -395,11 +412,15 @@ export function buildSchedule(settings, startKey) {
     if (!u.written && u.cards === 0) return;
     const windowDays = u.examDays === null ? STEADY_HORIZON_DAYS : Math.min(u.examDays, horizon);
     if (windowDays < 0) return;
-    const count = passCountForWindow(windowDays);
+    // Narrowed scope: one pass fewer per topic, so the same time covers the
+    // material that matters most rather than spreading thinner.
+    const count = narrow ? Math.max(1, passCountForWindow(windowDays) - 1) : passCountForWindow(windowDays);
     const offsets = passOffsets(windowDays, count);
     const prio = priorityOf(u);
     offsets.forEach((off, i) => {
-      const kind = kindForPass(u, i, count, windowDays - off);
+      let kind = kindForPass(u, i, count, windowDays - off);
+      // Reading is the first thing to go when time is short.
+      if (narrow && kind === "read") kind = "quiz";
       candidates.push({ preferred: off, priority: prio + (i === 0 ? 0.04 : 0), task: makeTask(kind, u, i) });
     });
   });

@@ -30,12 +30,19 @@ export function ensurePlan() {
   if (typeof st.mode !== "string") st.mode = "split";
   if (typeof st.autoScheduleTests !== "boolean") st.autoScheduleTests = true;
   if (typeof st.maxSubjectsPerDay !== "number") st.maxSubjectsPerDay = 3;
+  if (typeof st.narrowScope !== "boolean") st.narrowScope = false;
   if (typeof p.setupDone !== "boolean") p.setupDone = false;
   if (!p.days || typeof p.days !== "object") p.days = {};
   if (!p.done || typeof p.done !== "object") p.done = {};
   if (!p.skipped || typeof p.skipped !== "object") p.skipped = {};
   // Work you chose to bring forward, keyed by the day you moved it to.
   if (!p.pulled || typeof p.pulled !== "object") p.pulled = {};
+  // How long tasks really take you, per kind, so estimates can calibrate.
+  if (!p.pace || typeof p.pace !== "object") p.pace = {};
+  // The task you most recently launched, used to measure actual time spent.
+  if (!p.active || typeof p.active !== "object") p.active = null;
+  // The week whose digest you have already seen.
+  if (typeof p.digestSeen !== "string") p.digestSeen = "";
   if (typeof p.generatedFor !== "string") p.generatedFor = "";
   return p;
 }
@@ -65,6 +72,7 @@ export function saveSetup(next) {
     }
     if (typeof next.autoScheduleTests === "boolean") st.autoScheduleTests = next.autoScheduleTests;
     if (typeof next.maxSubjectsPerDay === "number") st.maxSubjectsPerDay = next.maxSubjectsPerDay;
+    if (typeof next.narrowScope === "boolean") st.narrowScope = next.narrowScope;
   }
   p.setupDone = true;
   regeneratePlan(true);
@@ -88,6 +96,150 @@ export function minutesForMode(mode, values) {
   return out;
 }
 
+/* ---------- calibrating estimates against your real pace ---------- */
+
+/* Below this many finished tasks of a kind we do not pretend to know your
+   pace, and estimates are left alone. */
+const PACE_MIN_SAMPLES = 3;
+const PACE_MIN = 0.6;
+const PACE_MAX = 1.8;
+
+/** Remembers which task you just opened, so we can time it. */
+export function noteTaskStart(task) {
+  if (!task || !task.id) return;
+  const p = ensurePlan();
+  p.active = { id: task.id, kind: task.kind || "", minutes: Number(task.minutes) || 0, at: Date.now() };
+}
+
+/* Papers are fixed at real exam length, so they are never calibrated. */
+function recordPace(kind, actualMinutes, estimate) {
+  if (!kind || kind === "test" || !estimate) return;
+  const p = ensurePlan();
+  let actual = Number(actualMinutes);
+  if (!isFinite(actual)) return;
+  // Guard against a tab left open for an hour, or an instant mis-tick.
+  actual = Math.max(1, Math.min(estimate * 3, actual));
+  const rec = p.pace[kind] || (p.pace[kind] = { n: 0, actual: 0, estimate: 0 });
+  rec.n += 1;
+  rec.actual += actual;
+  rec.estimate += estimate;
+}
+
+/** Per-kind multipliers, only for kinds with enough evidence behind them. */
+export function paceFactors() {
+  const p = ensurePlan();
+  const out = {};
+  for (const kind in p.pace) {
+    const r = p.pace[kind];
+    if (!r || r.n < PACE_MIN_SAMPLES || !r.estimate) continue;
+    out[kind] = Math.max(PACE_MIN, Math.min(PACE_MAX, r.actual / r.estimate));
+  }
+  return out;
+}
+
+/** Human-readable version of the above, for the weekly digest. */
+export function paceSummary() {
+  const p = ensurePlan();
+  const out = [];
+  const factors = paceFactors();
+  for (const kind in factors) {
+    const r = p.pace[kind];
+    out.push({ kind: kind, factor: factors[kind], n: r.n, average: Math.round(r.actual / r.n) });
+  }
+  return out.sort((a, b) => Math.abs(b.factor - 1) - Math.abs(a.factor - 1));
+}
+
+/** Settings as the engine should see them: yours, plus what we have learnt. */
+function planningSettings() {
+  const p = ensurePlan();
+  return Object.assign({}, p.settings, { pace: paceFactors() });
+}
+
+/* ---------- reacting to a slip ---------- */
+
+/** Adds (or removes) the same amount of time on every day you actually study. */
+export function addMinutesPerDay(delta) {
+  const p = ensurePlan();
+  const st = p.settings;
+  st.minutesByWeekday = st.minutesByWeekday.map((v) =>
+    v > 0 ? Math.max(5, Math.min(360, Math.round(v + delta))) : 0
+  );
+  regeneratePlan(true);
+  scheduleSave();
+  return st.minutesByWeekday;
+}
+
+/** Fewer passes and no reading tasks: the same time spent on less material. */
+export function setNarrowScope(on) {
+  const p = ensurePlan();
+  p.settings.narrowScope = !!on;
+  regeneratePlan(true);
+  scheduleSave();
+  return p.settings.narrowScope;
+}
+
+/**
+ * What you have actually missed recently, and what it costs. Days with no
+ * capacity are rest days and are never counted as missed.
+ */
+export function slipReport(lookbackDays) {
+  const p = ensurePlan();
+  const today = todayKey();
+  const days = Math.max(1, lookbackDays || 7);
+  let count = 0;
+  let minutes = 0;
+  let dayCount = 0;
+  for (let i = 1; i <= days; i++) {
+    const key = addDays(today, -i);
+    if (!capacityOn(key)) continue;
+    const list = Array.isArray(p.days[key]) ? p.days[key] : [];
+    let missedHere = 0;
+    list.forEach((t) => {
+      if (!t || t.kind === "due") return;
+      if (isTaskDone(key, t.id) || isTaskSkipped(key, t.id)) return;
+      missedHere += 1;
+      minutes += t.minutes || 0;
+    });
+    if (missedHere) {
+      count += missedHere;
+      dayCount += 1;
+    }
+  }
+  const h = health();
+  return {
+    count: count,
+    minutes: minutes,
+    days: dayCount,
+    // A slip only worth mentioning: more than one session lost.
+    slipping: count >= 2,
+    behind: h.behind,
+    suggestedExtra: count ? Math.max(5, Math.min(30, Math.round(minutes / days / 5) * 5)) : 0
+  };
+}
+
+/* ---------- weekly digest ---------- */
+
+/** Monday-anchored key, so one digest per calendar week. */
+function weekKey(dateKey) {
+  const d = new Date((dateKey || todayKey()) + "T00:00:00");
+  const back = (d.getDay() + 6) % 7;
+  return addDays(dateKey || todayKey(), -back);
+}
+
+export function digestWeekKey() {
+  return weekKey(todayKey());
+}
+
+export function digestDismissed() {
+  return ensurePlan().digestSeen === digestWeekKey();
+}
+
+export function dismissDigest() {
+  const p = ensurePlan();
+  p.digestSeen = digestWeekKey();
+  scheduleSave();
+}
+
 /* ---------- generating ---------- */
 
 export function regeneratePlan(force) {
@@ -96,7 +248,7 @@ export function regeneratePlan(force) {
   if (!force && p.generatedFor === today) return p;
 
   const carried = collectCarryOver(p, today);
-  const schedule = buildSchedule(p.settings, today);
+  const schedule = buildSchedule(planningSettings(), today);
 
   // Days before today are history and are left exactly as they were.
   const kept = {};
@@ -248,6 +400,10 @@ export function isTaskSkipped(dateKey, taskId) {
 
 export function markTaskDone(dateKey, taskId, minutes) {
   const p = ensurePlan();
+  if (p.active && p.active.id === taskId) {
+    recordPace(p.active.kind, (Date.now() - p.active.at) / 60000, Number(p.active.minutes) || Number(minutes) || 0);
+    p.active = null;
+  }
   if (!p.done[dateKey]) p.done[dateKey] = {};
   p.done[dateKey][taskId] = { at: Date.now(), minutes: Number(minutes) || 0 };
   if (p.skipped[dateKey]) delete p.skipped[dateKey][taskId];

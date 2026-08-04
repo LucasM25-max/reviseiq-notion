@@ -158,3 +158,135 @@
   .pl-mins{gap:8px;}
   .pl-min-field input{width:88px;}
 }
+
+/* ---------- decluttered Plan screen ---------- */
+
+/* one status line instead of four stat cards */
+.pl-oneline{
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;
+  font-size:12.5px;color:var(--text-soft);margin:-4px 0 20px 0;
+}
+.pl-line-bit{display:inline-flex;align-items:center;gap:6px;}
+.pl-line-bit + .pl-line-bit::before{content:"\00b7";color:var(--text-faint);margin-right:8px;}
+.pl-line-bit.is-key{font-weight:700;color:var(--text);}
+.pl-line-bit.is-good{color:var(--success);font-weight:600;}
+.pl-line-bit.is-urgent{color:var(--danger);font-weight:600;}
+
+/* weekly digest: arrives, then leaves */
+.pl-digest{
+  background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius-m);
+  padding:13px 15px;margin-bottom:18px;
+}
+.pl-digest-head{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;color:var(--text-soft);}
+.pl-digest-close{margin-left:auto;color:var(--text-faint);padding:2px;border-radius:var(--radius-s);}
+.pl-digest-close:hover{color:var(--danger);background:var(--danger-soft);}
+.pl-digest-list{margin:9px 0 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px;}
+.pl-digest-list li{font-size:12.5px;color:var(--text-soft);line-height:1.5;}
+
+/* the honest slip card */
+.pl-slip{
+  background:var(--warn-soft);border:1px solid var(--warn);border-radius:var(--radius-m);
+  padding:14px 16px;margin-bottom:18px;
+}
+.pl-slip-head{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:var(--warn);}
+.pl-slip-text{font-size:13px;color:var(--text-soft);line-height:1.55;margin-top:6px;}
+.pl-slip-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.pl-slip-note{font-size:11.5px;color:var(--text-faint);margin-top:9px;line-height:1.5;}
+
+/* the focus card: the one thing to do next */
+.pl-focus{
+  background:var(--card-bg);border:1px solid var(--border-strong);border-left:3px solid var(--accent);
+  border-radius:var(--radius-l);padding:18px 20px;box-shadow:var(--shadow-m);
+}
+.pl-focus.kind-test{border-left-color:var(--danger);}
+.pl-focus.kind-final{border-left-color:var(--warn);}
+.pl-focus-top{display:flex;align-items:center;gap:10px;}
+.pl-focus-eyebrow{
+  display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.07em;color:var(--accent);
+}
+.pl-focus-mins{
+  margin-left:auto;font-size:12px;font-weight:700;color:var(--text-soft);background:var(--bg-soft);
+  border-radius:999px;padding:3px 10px;font-variant-numeric:tabular-nums;
+}
+.pl-focus-title{font-family:var(--font-serif);font-size:24px;line-height:1.25;margin-top:10px;}
+.pl-focus-sub{font-size:12.5px;color:var(--text-faint);margin-top:5px;line-height:1.5;}
+.pl-focus-actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-top:16px;}
+.pl-focus-actions .pl-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;font-size:14px;}
+.pl-focus-skip{font-size:12px;color:var(--text-faint);margin-left:auto;padding:6px 8px;border-radius:var(--radius-s);}
+.pl-focus-skip:hover{color:var(--danger);background:var(--danger-soft);}
+
+/* "then: ..." line, which expands into the full list */
+.pl-then{
+  display:flex;align-items:center;gap:8px;width:100%;margin-top:10px;padding:8px 4px;
+  font-size:12.5px;color:var(--text-soft);background:none;border:0;text-align:left;
+}
+.pl-then:hover{color:var(--accent);}
+.pl-then > span:first-of-type{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pl-then-count{margin-left:auto;flex-shrink:0;font-size:11px;color:var(--text-faint);}
+.pl-then + .pl-list{margin-top:2px;}
+
+/* done state: a reward, not more admin */
+.pl-done-card{
+  display:flex;align-items:center;gap:14px;background:var(--success-soft);
+  border:1px solid var(--success);border-radius:var(--radius-l);padding:18px 20px;
+}
+.pl-done-icon{
+  width:40px;height:40px;flex-shrink:0;border-radius:50%;background:var(--success);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+}
+.pl-done-text{display:flex;flex-direction:column;gap:3px;}
+.pl-done-text strong{font-family:var(--font-serif);font-size:19px;}
+.pl-done-text span{font-size:12.5px;color:var(--text-soft);}
+
+/* quiet get-ahead offer while today is still unfinished */
+.pl-pull-quiet{
+  display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:6px 10px;
+  font-size:12px;color:var(--text-faint);background:none;border:1px dashed var(--border-strong);
+  border-radius:999px;
+}
+.pl-pull-quiet:hover{color:var(--accent);border-color:var(--accent-2);}
+
+/* progress rolled behind one toggle */
+.pl-section-toggle{
+  display:flex;align-items:center;gap:9px;width:100%;margin-top:26px;padding:12px 14px;
+  background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-m);
+  font-size:13.5px;font-weight:600;color:var(--text);text-align:left;
+}
+.pl-section-toggle:hover{border-color:var(--accent-2);color:var(--accent);}
+.pl-section-toggle.is-open{border-bottom-left-radius:0;border-bottom-right-radius:0;}
+.pl-section-note{margin-left:auto;font-size:11.5px;font-weight:500;color:var(--text-faint);text-align:right;}
+.pl-progress-panel{
+  border:1px solid var(--border);border-top:0;border-radius:0 0 var(--radius-m) var(--radius-m);
+  padding:18px 16px 6px 16px;background:var(--bg-soft);
+}
+.pl-progress-panel .today-section-label:first-child{margin-top:0;}
+.pl-timeline-empty{font-size:12.5px;color:var(--text-faint);padding:10px 2px;}
+
+/* week bars: planned height, done fill, in one chart */
+.pl-week-plan{width:100%;background:var(--accent-soft);border-radius:5px;min-height:3px;
+  display:flex;align-items:flex-end;overflow:hidden;}
+.pl-week-done{width:100%;background:var(--success);border-radius:5px;}
+.pl-week-col.is-today .pl-week-plan{background:var(--accent-2);}
+
+/* progressive disclosure: reasoning appears on hover or when opened */
+.pl-info{
+  flex:1;min-width:0;display:flex;flex-direction:column;gap:0;
+  background:none;border:0;padding:0;text-align:left;color:inherit;
+}
+.pl-why{max-height:0;opacity:0;margin-top:0;transition:max-height .15s ease,opacity .15s ease,margin-top .15s ease;}
+.pl-task:hover .pl-why,.pl-task.is-open .pl-why,.pl-task:focus-within .pl-why{max-height:20px;opacity:1;margin-top:2px;}
+.pl-skip{opacity:0;transition:opacity .12s ease;}
+.pl-task:hover .pl-skip,.pl-task.is-open .pl-skip,.pl-task:focus-within .pl-skip{opacity:1;}
+
+@media (max-width:860px){
+  .pl-focus{padding:16px;}
+  .pl-focus-title{font-size:20px;}
+  .pl-focus-actions .pl-btn{flex:1;justify-content:center;}
+  .pl-focus-skip{margin-left:0;}
+  .pl-section-note{display:none;}
+  /* no hover on a phone: always show the reasoning and the skip control */
+  .pl-why{max-height:20px;opacity:1;margin-top:2px;}
+  .pl-skip{opacity:1;}
+}

@@ -25,7 +25,13 @@ import {
   removeToolbar
 } from "../overlays.js";
 import { startFlashcards, setFlashcardsNextTask } from "../render/flashcards.js";
-import { togglePlanSettings, togglePlanTimeline } from "../render/plan.js";
+import {
+  togglePlanSettings,
+  togglePlanTimeline,
+  togglePlanProgress,
+  togglePlanList,
+  expandPlanTask
+} from "../render/plan.js";
 import {
   planSettings,
   saveSetup,
@@ -38,7 +44,11 @@ import {
   isTaskSkipped,
   pullForward,
   undoPull,
-  ensurePlan
+  ensurePlan,
+  noteTaskStart,
+  addMinutesPerDay,
+  setNarrowScope,
+  dismissDigest
 } from "../plan/store.js";
 import { openTestSetup, resumeAttempt, openResults } from "../exam/session.js";
 import { openQuizSetup, resumeQuiz, openQuizResults } from "../quiz/session.js";
@@ -857,10 +867,12 @@ function readSetupCard(mode) {
     values[input.dataset.planMin] = input.value;
   });
   const auto = document.getElementById("plan-auto-tests");
+  const narrow = document.getElementById("plan-narrow");
   return {
     mode: mode,
     minutesByWeekday: minutesForMode(mode, values),
     autoScheduleTests: auto ? !!auto.checked : true,
+    narrowScope: narrow ? !!narrow.checked : false,
     maxSubjectsPerDay: 3
   };
 }
@@ -868,6 +880,8 @@ function readSetupCard(mode) {
 /** Starts whatever a plan task actually is. */
 function runPlanTask(task) {
   if (!task) return;
+  // Start the clock: markTaskDone compares this against the estimate.
+  noteTaskStart(task);
   if (task.kind === "quiz") {
     openQuizSetup(task.pageId);
     return;
@@ -927,6 +941,13 @@ function handlePlanClick(e) {
     return true;
   }
 
+  const expand = e.target.closest("[data-plan-expand]");
+  if (expand) {
+    expandPlanTask(expand.dataset.planExpand);
+    renderMain();
+    return true;
+  }
+
   const go = e.target.closest("[data-plan-task]");
   if (go) {
     runPlanTask({
@@ -960,6 +981,31 @@ function handlePlanClick(e) {
     const st = planSettings();
     saveSetup(readSetupCard(st.mode || "split"));
     togglePlanSettings(false);
+    renderMain();
+    return true;
+  }
+  if (which === "progress") {
+    togglePlanProgress();
+    renderMain();
+    return true;
+  }
+  if (which === "showall") {
+    togglePlanList();
+    renderMain();
+    return true;
+  }
+  if (which === "digest-dismiss") {
+    dismissDigest();
+    renderMain();
+    return true;
+  }
+  if (which === "add-time") {
+    addMinutesPerDay(Number(act.dataset.minutes) || 15);
+    renderMain();
+    return true;
+  }
+  if (which === "narrow") {
+    setNarrowScope(act.dataset.on === "1");
     renderMain();
     return true;
   }
