@@ -52,6 +52,7 @@ import {
 } from "../plan/store.js";
 import { openTestSetup, resumeAttempt, openResults } from "../exam/session.js";
 import { openQuizSetup, resumeQuiz, openQuizResults } from "../quiz/session.js";
+import { openPractiseSetup, resumePractise, openPractiseResults } from "../practise/session.js";
 import { resolveInsight } from "../exam/insights.js";
 import {
   navigateTo,
@@ -189,6 +190,19 @@ export function initMainEvents() {
     if (quizAct) {
       if (quizAct.dataset.quizAct === "resume") resumeQuiz(quizAct.dataset.quizId);
       else openQuizResults(quizAct.dataset.quizId);
+      return;
+    }
+
+    const practiseBtn = e.target.closest("#practise-me-btn");
+    if (practiseBtn) {
+      openPractiseSetup(practiseBtn.dataset.pageId);
+      return;
+    }
+
+    const practiseOpen = e.target.closest("[data-practise-open]");
+    if (practiseOpen) {
+      if (practiseOpen.dataset.practiseOpen === "resume") resumePractise(practiseOpen.dataset.practiseId);
+      else openPractiseResults(practiseOpen.dataset.practiseId);
       return;
     }
 
@@ -884,6 +898,10 @@ function runPlanTask(task) {
   noteTaskStart(task);
   if (task.kind === "quiz") {
     openQuizSetup(task.pageId);
+    return;
+  }
+  if (task.kind === "practise") {
+    openPractiseSetup(task.pageId);
     return;
   }
   if (task.kind === "test") {

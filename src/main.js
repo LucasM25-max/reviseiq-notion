@@ -9,6 +9,7 @@ import { initSidebarEvents } from "./events/sidebarEvents.js";
 import { setFlashcardsCloseHandler, setFlashcardsRerender, startFlashcards } from "./render/flashcards.js";
 import { setTestCloseHandler } from "./exam/session.js";
 import { setQuizCloseHandler } from "./quiz/session.js";
+import { setPractiseCloseHandler } from "./practise/session.js";
 import { navigateTo, openPlanView } from "./pages.js";
 import { initMobileEvents } from "./events/mobileEvents.js";
 import { registerServiceWorker, initConnectivityNotices } from "./pwa.js";
@@ -42,6 +43,10 @@ function boot() {
     renderMain();
   });
   setQuizCloseHandler(() => {
+    renderSidebar();
+    renderMain();
+  });
+  setPractiseCloseHandler(() => {
     renderSidebar();
     renderMain();
   });

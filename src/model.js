@@ -88,6 +88,7 @@ export function createDefaultState() {
     insights: [],
     // Multiple-choice quiz attempts from "Quiz me".
     quizzes: {},
+    practises: {},
     // Revision planner: settings, generated schedule, and what you ticked off.
     plan: {}
   };
@@ -157,6 +158,7 @@ export function normalizeState(obj) {
       if (obj.tests && typeof obj.tests === "object") s.tests = obj.tests;
       if (Array.isArray(obj.insights)) s.insights = obj.insights;
       if (obj.quizzes && typeof obj.quizzes === "object") s.quizzes = obj.quizzes;
+      if (obj.practises && typeof obj.practises === "object") s.practises = obj.practises;
       if (obj.plan && typeof obj.plan === "object") s.plan = obj.plan;
     }
   } catch (e) {

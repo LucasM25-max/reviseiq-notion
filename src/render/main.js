@@ -11,6 +11,8 @@ import { iconImg, ui } from "../icons.js";
 import { cardsForPage, isDue } from "../srs.js";
 import { testEligibility } from "../exam/session.js";
 import { quizEligibility } from "../quiz/session.js";
+import { practiseEligibility } from "../practise/session.js";
+import { renderPractisesSection } from "./practise.js";
 import { renderFeedbackSection, renderAttemptsSection, renderQuizzesSection } from "./insights.js";
 
 export function renderMain() {
@@ -50,6 +52,7 @@ export function renderMain() {
   if (page.type === "subject") html += renderExamPanel(page);
   html += renderPageActions(page);
   html += renderQuizzesSection(page.id);
+  html += renderPractisesSection(page.id);
   html += '<div class="block-list" id="block-list" data-page-id="' + page.id + '">' + renderBlocksList(page.blocks) + "</div>";
   // Invisible click target: clicking the space under the last block starts a
   // new paragraph, without adding another visible "add a block" row.
@@ -100,9 +103,10 @@ export function renderEmptyState() {
 export function renderPageActions(page) {
   const revise = renderReviseButton(page);
   const quiz = renderQuizButton(page);
+  const practise = renderPractiseButton(page);
   const test = renderTestButton(page);
-  if (!revise && !quiz && !test) return "";
-  return '<div class="page-actions">' + revise + quiz + test + "</div>";
+  if (!revise && !quiz && !practise && !test) return "";
+  return '<div class="page-actions">' + revise + quiz + practise + test + "</div>";
 }
 
 /*
@@ -128,6 +132,41 @@ function renderQuizButton(page) {
     ui("quiz", 15) +
     "<span>Quiz me</span>" +
     '<span class="quiz-badge">MCQ</span>' +
+    "</button>"
+  );
+}
+
+/*
+ * Practise sits between the two: ten to twenty-five minutes of written work.
+ * It runs on any page with enough notes. Where the real structure of the exam
+ * is known it finishes with genuine exam questions; where it is not, the
+ * knowledge stage simply runs longer and no exam questions are invented.
+ */
+function renderPractiseButton(page) {
+  const el = practiseEligibility(page.id);
+  if (!el) return "";
+  if (!el.enough) {
+    return (
+      '<button class="btn-practise is-disabled" disabled title="Add more notes first \u2014 ' +
+      el.words +
+      ' words so far">' +
+      ui("marksheet", 15) +
+      "<span>Practise</span></button>"
+    );
+  }
+  return (
+    '<button class="btn-practise" id="practise-me-btn" data-page-id="' +
+    page.id +
+    '" title="' +
+    (el.exam
+      ? "Written questions, then real exam questions \u2014 up to 25 minutes"
+      : "Hard written questions on these notes \u2014 up to 25 minutes") +
+    '">' +
+    ui("marksheet", 15) +
+    "<span>Practise</span>" +
+    '<span class="practise-badge">' +
+    (el.exam ? "Written + exam" : "Written") +
+    "</span>" +
     "</button>"
   );
 }

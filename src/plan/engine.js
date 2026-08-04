@@ -15,6 +15,8 @@
  *   - interleaving subjects beats blocking them, so a day mixes 2-3 subjects.
  */
 import { store, getPage } from "../state.js";
+import { MIN_PRACTISE_WORDS, DEFAULT_TARGET_MINUTES } from "../practise/prompt.js";
+import { PRACTISE_EVIDENCE_WEIGHT } from "../practise/store.js";
 import { daysUntil, pad2 } from "../utils.js";
 import {
   cardsForPage,
@@ -106,11 +108,15 @@ function evidenceForPage(pageId) {
   let pct = null;
   let when = 0;
   let count = 0;
-  const scan = (map) => {
+  // How strongly the strongest piece of evidence counts. A quiz or a mock is
+  // worth 1; a practise is written, marked work but short, so it is worth less.
+  let weight = 0;
+  const scan = (map, w) => {
     for (const k in map) {
       const a = map[k];
       if (!a || a.pageId !== pageId || !a.result) continue;
       count += 1;
+      if (w > weight) weight = w;
       const at = a.finishedAt || a.startedAt || 0;
       const p = attemptPercent(a);
       if (p === null) continue;
@@ -120,9 +126,10 @@ function evidenceForPage(pageId) {
       }
     }
   };
-  scan(store.state.quizzes || {});
-  scan(store.state.tests || {});
-  return { pct: pct, lastAt: when, attempts: count };
+  scan(store.state.quizzes || {}, 1);
+  scan(store.state.tests || {}, 1);
+  scan(store.state.practises || {}, PRACTISE_EVIDENCE_WEIGHT);
+  return { pct: pct, lastAt: when, attempts: count, weight: weight };
 }
 
 function unresolvedInsightCount(pageId) {
@@ -171,6 +178,8 @@ export function topicUnits() {
       maturity: maturityOf(cards),
       lapse: lapse,
       tested: ev.attempts > 0,
+      evidenceWeight: ev.weight,
+      practiseEligible: words >= MIN_PRACTISE_WORDS,
       attempts: ev.attempts,
       lastScore: ev.pct,
       lastAt: ev.lastAt,
@@ -195,7 +204,7 @@ function daysSince(ms) {
  * with a pile of hand-written flashcards and no test behind it.
  */
 export function readiness(u) {
-  const evidence = u.tested ? 1 : u.cards > 0 ? 0.5 : 0;
+  const evidence = u.tested ? u.evidenceWeight || 1 : u.cards > 0 ? 0.5 : 0;
   let accuracy = 0.5;
   if (u.lastScore !== null && u.lastScore !== undefined) accuracy = u.lastScore;
   if (u.lapse !== null && u.lapse !== undefined) {
@@ -259,6 +268,10 @@ export function passOffsets(windowDays, count) {
 
 /* ---------- task shapes ---------- */
 
+/* A practise is budgeted at its default target length; the practise itself
+   then works its real length out from the marks it sets. */
+const PRACTISE_MINUTES = DEFAULT_TARGET_MINUTES + 5;
+
 /* Calibration learnt from how long tasks really take, injected by the store at
    the start of every build. Papers are never calibrated: a paper takes as long
    as the real paper takes. */
@@ -277,6 +290,9 @@ function kindForPass(u, index, count, daysBeforeExam) {
   // reading pass to learn it; everything after that is retrieval.
   if (index === 0 && !u.tested && u.cards === 0 && (u.examDays === null || u.examDays > 21)) return "read";
   if (u.cards > 0 && index % 2 === 1) return "cards";
+  // Once retrieval is under way, one pass in three is written practice: harder
+  // than a quiz, and it is what produces the mistakes the flashcards come from.
+  if (u.practiseEligible && index > 0 && index % 3 === 2) return "practise";
   return "quiz";
 }
 
@@ -288,6 +304,7 @@ function baseMinutesForTask(kind, u) {
   if (kind === "due") return estimateMinutes(u.dueCount);
   if (kind === "cards") return estimateMinutes(Math.max(4, u.cards));
   if (kind === "quiz") return 15;
+  if (kind === "practise") return PRACTISE_MINUTES;
   if (kind === "test") return u.fullPaper ? FULL_PAPER_MINUTES : SECTION_MINUTES;
   if (kind === "read") return Math.max(10, Math.min(30, Math.round(u.words / 180 / 5) * 5 || 10));
   if (kind === "final") return u.cards > 0 ? Math.min(25, estimateMinutes(Math.max(4, u.cards))) : 15;
@@ -308,6 +325,10 @@ function whyForTask(kind, u) {
   }
   if (kind === "cards") {
     const base = u.cards + " flashcard" + (u.cards === 1 ? "" : "s") + " from your mistakes";
+    return weak ? base + " \u00B7 " + weak : base;
+  }
+  if (kind === "practise") {
+    const base = "write it out, not multiple choice";
     return weak ? base + " \u00B7 " + weak : base;
   }
   if (kind === "read") return "learn it first \u2014 nothing tested here yet";

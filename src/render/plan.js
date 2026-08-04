@@ -45,13 +45,14 @@ const KIND_LABEL = {
   due: "Flashcards due",
   cards: "Flashcards",
   quiz: "Quiz me",
+  practise: "Practise",
   test: "Mock paper",
   read: "Learn it",
   final: "Final review"
 };
-const KIND_SHORT = { due: "Cards", cards: "Cards", quiz: "Quiz", test: "Paper", read: "Read", final: "Review" };
-const KIND_ICON = { due: "cards", cards: "cards", quiz: "question", test: "exam", read: "notebook", final: "target" };
-const KIND_ACTION = { due: "Start", cards: "Start", quiz: "Quiz me", test: "Sit it", read: "Open", final: "Start" };
+const KIND_SHORT = { due: "Cards", cards: "Cards", quiz: "Quiz", practise: "Practise", test: "Paper", read: "Read", final: "Review" };
+const KIND_ICON = { due: "cards", cards: "cards", quiz: "question", practise: "marksheet", test: "exam", read: "notebook", final: "target" };
+const KIND_ACTION = { due: "Start", cards: "Start", quiz: "Quiz me", practise: "Practise", test: "Sit it", read: "Open", final: "Start" };
 
 /* View-local UI state. Deliberately not persisted: every visit starts calm. */
 let settingsOpen = false;

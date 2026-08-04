@@ -318,7 +318,7 @@ function loadBase(uid) {
   } catch (e) {
     /* fall through */
   }
-  return { pages: {}, meta: {}, quizzes: {}, tests: {}, synced: false };
+  return { pages: {}, meta: {}, quizzes: {}, tests: {}, practises: {}, synced: false };
 }
 
 function saveBase() {
@@ -369,6 +369,7 @@ function applyMetaPayload(key, data) {
 function collectionMap(kind) {
   if (kind === "quizzes") return store.state.quizzes || {};
   if (kind === "tests") return store.state.tests || {};
+  if (kind === "practises") return store.state.practises || {};
   return {};
 }
 
@@ -518,7 +519,7 @@ function stopTimers() {
 
 async function fetchEverything() {
   const fb = ctx.fb;
-  const out = { pages: {}, meta: {}, quizzes: {}, tests: {} };
+  const out = { pages: {}, meta: {}, quizzes: {}, tests: {}, practises: {} };
 
   const pageSnap = await fb.sdk.getDocs(fb.sdk.collection(fb.db, "users", ctx.uid, "pages"));
   pageSnap.forEach((d) => {
@@ -536,6 +537,10 @@ async function fetchEverything() {
   testSnap.forEach((d) => {
     out.tests[d.id] = d.data();
   });
+  const practiseSnap = await fb.sdk.getDocs(fb.sdk.collection(fb.db, "users", ctx.uid, "practises"));
+  practiseSnap.forEach((d) => {
+    out.practises[d.id] = d.data();
+  });
   return out;
 }
 
@@ -550,6 +555,7 @@ function applyRemoteSnapshot(remote, mode) {
     s.pages = {};
     s.quizzes = {};
     s.tests = {};
+    s.practises = {};
   }
 
   for (const id in remote.pages) {
@@ -564,7 +570,7 @@ function applyRemoteSnapshot(remote, mode) {
     }
   }
 
-  ["quizzes", "tests"].forEach((kind) => {
+  ["quizzes", "tests", "practises"].forEach((kind) => {
     const map = remote[kind] || {};
     if (!s[kind] || typeof s[kind] !== "object") s[kind] = {};
     for (const id in map) {
@@ -633,14 +639,14 @@ function mergeInsights(data) {
 
 function rebuildBaseFromRemote(remote) {
   if (!ctx) return;
-  ctx.base = { pages: {}, meta: {}, quizzes: {}, tests: {}, synced: true };
+  ctx.base = { pages: {}, meta: {}, quizzes: {}, tests: {}, practises: {}, synced: true };
   for (const id in store.state.pages) {
     ctx.base.pages[id] = hashOf(store.state.pages[id]);
   }
   META_KEYS.forEach((key) => {
     ctx.base.meta[key] = hashOf(metaPayload(key));
   });
-  ["quizzes", "tests"].forEach((kind) => {
+  ["quizzes", "tests", "practises"].forEach((kind) => {
     const map = collectionMap(kind);
     for (const id in map) ctx.base[kind][id] = hashOf(map[id]);
   });
@@ -673,7 +679,7 @@ async function pushEverything(deleteExtras) {
       payload: { data: metaPayload(key), updatedAtMs: now, device: ctx.device }
     });
   });
-  ["quizzes", "tests"].forEach((kind) => {
+  ["quizzes", "tests", "practises"].forEach((kind) => {
     const map = collectionMap(kind);
     for (const id in map) {
       ops.push({
@@ -694,12 +700,12 @@ async function pushEverything(deleteExtras) {
 
   const recordBase = () => {
     if (!ctx) return;
-    ctx.base = { pages: {}, meta: {}, quizzes: {}, tests: {}, synced: true };
+    ctx.base = { pages: {}, meta: {}, quizzes: {}, tests: {}, practises: {}, synced: true };
     for (const id in store.state.pages) ctx.base.pages[id] = hashOf(store.state.pages[id]);
     META_KEYS.forEach((key) => {
       ctx.base.meta[key] = hashOf(metaPayload(key));
     });
-    ["quizzes", "tests"].forEach((kind) => {
+    ["quizzes", "tests", "practises"].forEach((kind) => {
       const map = collectionMap(kind);
       for (const id in map) ctx.base[kind][id] = hashOf(map[id]);
     });
@@ -898,8 +904,8 @@ export async function flushNow(reason) {
   });
 
   // quiz + mock exam attempts
-  const collHashes = { quizzes: {}, tests: {} };
-  ["quizzes", "tests"].forEach((kind) => {
+  const collHashes = { quizzes: {}, tests: {}, practises: {} };
+  ["quizzes", "tests", "practises"].forEach((kind) => {
     const map = collectionMap(kind);
     for (const id in map) {
       const h = hashOf(map[id]);
@@ -950,6 +956,7 @@ export async function flushNow(reason) {
     ctx.base.meta = metaHashes;
     ctx.base.quizzes = collHashes.quizzes;
     ctx.base.tests = collHashes.tests;
+    ctx.base.practises = collHashes.practises;
     ctx.base.synced = true;
     saveBase();
   };
@@ -1068,7 +1075,7 @@ function subscribe() {
     })
   );
 
-  ["quizzes", "tests"].forEach((kind) => {
+  ["quizzes", "tests", "practises"].forEach((kind) => {
     ctx.unsubs.push(
       fb.sdk.onSnapshot(fb.sdk.collection(fb.db, "users", ctx.uid, kind), (snap) => {
         let touched = 0;

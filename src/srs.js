@@ -303,6 +303,10 @@ export function pageHasBeenTested(pageId) {
   for (const k in tests) {
     if (tests[k] && tests[k].pageId === pageId && tests[k].result) return true;
   }
+  const practises = store.state.practises || {};
+  for (const k in practises) {
+    if (practises[k] && practises[k].pageId === pageId && practises[k].result) return true;
+  }
   return false;
 }
 
