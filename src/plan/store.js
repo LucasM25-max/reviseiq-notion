@@ -273,6 +273,8 @@ export function regeneratePlan(force) {
   p.days = kept;
   p.generatedFor = today;
   p.horizon = schedule.horizon;
+  /* How far the scope had to be cut for everything to fit. */
+  p.trim = schedule.trim || 0;
   p.dropped = (schedule.dropped || []).map((t) => ({
     id: t.id,
     title: t.title,
@@ -501,7 +503,13 @@ export function upcomingDays(limit) {
 export function health() {
   const p = ensurePlan();
   return planHealth(
-    { days: p.days, horizon: p.horizon || 21, dropped: p.dropped || [], generatedFor: p.generatedFor || todayKey() },
+    {
+      days: p.days,
+      horizon: p.horizon || 21,
+      dropped: p.dropped || [],
+      trim: p.trim || 0,
+      generatedFor: p.generatedFor || todayKey()
+    },
     p.settings
   );
 }

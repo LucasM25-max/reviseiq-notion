@@ -120,6 +120,7 @@ export function renderPlanView() {
   html += renderOneLine();
   html += renderDigest();
   html += renderSlip();
+  html += renderTrimNote();
   if (settingsOpen) html += renderSetupCard(false);
   html += renderTodayFocus();
   html += renderWeekStrip();
@@ -235,6 +236,30 @@ function renderDigest() {
 
 /* ---------- the honest slip card ---------- */
 
+/* What each step of automatic trimming actually costs, said once. */
+const TRIM_NOTE = {
+  1: "Reading tasks have been dropped so the time goes on retrieval.",
+  2: "Scope is narrowed to fit: one pass fewer per topic and no reading tasks.",
+  3: "Scope is cut hard to fit: two passes fewer per topic and no reading tasks."
+};
+
+function renderTrimNote() {
+  const h = health();
+  if (h.behind || !h.trim) return "";
+  const byHand = planSettings().narrowScope;
+  return (
+    '<div class="pl-trim">' +
+    ui("check", 13) +
+    "<span>" +
+    escapeHtml(TRIM_NOTE[h.trim] || TRIM_NOTE[2]) +
+    " Everything fits.</span>" +
+    (byHand
+      ? '<button class="pl-link" data-plan-act="narrow" data-on="0">Restore full coverage</button>'
+      : '<button class="pl-link" data-plan-act="add-time" data-minutes="15">Add 15 min a day</button>') +
+    "</div>"
+  );
+}
+
 function renderSlip() {
   const s = slipReport(7);
   if (!s.slipping && !s.behind) return "";
@@ -252,9 +277,9 @@ function renderSlip() {
   }
   if (s.behind) {
     text +=
-      "At your current time per day, roughly " +
+      "Even at the narrowest scope, roughly " +
       health().droppedMinutes +
-      " minutes of planned work will not fit before your exams.";
+      " minutes of work has nowhere to go before your exams.";
   } else {
     text += "Everything still fits, but it is worth deciding rather than drifting.";
   }
@@ -263,7 +288,7 @@ function renderSlip() {
     '<div class="pl-slip"><div class="pl-slip-head">' +
     ui("warning", 14) +
     "<span>" +
-    (s.behind ? "This plan does not fit" : "You have slipped a little") +
+    (s.behind ? "There is not enough time left" : "You have slipped a little") +
     "</span></div><div class=\"pl-slip-text\">" +
     text +
     '</div><div class="pl-slip-actions">' +

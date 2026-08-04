@@ -212,12 +212,17 @@ export function passCountForWindow(days) {
 
 /* Fractions of the window, chosen so each gap is roughly 1.5-1.8x the last
    and the final pass always lands in the last stretch before the exam. */
+/*
+ * Where the passes over a topic land inside its window, as a fraction of it.
+ * The first pass is always 0: a plan you open today should have work in it
+ * today. Later passes stay spaced so the recall gap grows.
+ */
 const PASS_FRACTIONS = {
-  1: [0.55],
-  2: [0.12, 0.78],
-  3: [0.08, 0.4, 0.85],
-  4: [0.05, 0.26, 0.55, 0.88],
-  5: [0.04, 0.18, 0.4, 0.65, 0.9]
+  1: [0],
+  2: [0, 0.78],
+  3: [0, 0.4, 0.85],
+  4: [0, 0.26, 0.55, 0.88],
+  5: [0, 0.18, 0.4, 0.65, 0.9]
 };
 
 export function passOffsets(windowDays, count) {
@@ -375,11 +380,42 @@ export function capacityFor(settings, key) {
  * Builds the whole schedule from today to the last exam.
  * Returns { days, horizon, dropped } where days is { "YYYY-MM-DD": [task] }.
  */
+/*
+ * A plan that does not fit is a bug, not a message. So the schedule is built at
+ * the fullest scope first, and if anything at all is left over it is rebuilt
+ * with less in it, until it fits. TRIM_LEVELS is that ladder, cheapest thing
+ * to lose first. Level 0 is everything the settings ask for.
+ */
+export const TRIM_LEVELS = 3;
+
 export function buildSchedule(settings, startKey) {
+  let out = null;
+  for (let trim = 0; trim <= TRIM_LEVELS; trim++) {
+    out = buildOnce(settings, startKey, trim);
+    if (!out.dropped.length) return out;
+  }
+  return out;
+}
+
+function buildOnce(settings, startKey, trim) {
   const start = startKey || todayKey();
   pace = settings && settings.pace && typeof settings.pace === "object" ? settings.pace : {};
-  const narrow = !!(settings && settings.narrowScope);
-  const units = topicUnits();
+  /* Narrowing by hand is the same thing as one step of automatic trimming, so
+     the two share a scale rather than fighting each other. */
+  const level = Math.max(trim || 0, settings && settings.narrowScope ? 2 : 0);
+  const noReading = level >= 1;
+  const passesCut = level >= 3 ? 2 : level >= 2 ? 1 : 0;
+  /*
+   * An exam far beyond the planning horizon is not a deadline yet, it is just a
+   * date in the diary. Treating one as a deadline used to squash a year of
+   * revision into the next four months and then report that it did not fit.
+   * Until it comes inside the horizon the topic is kept ticking over instead.
+   */
+  const units = topicUnits().map((u) =>
+    u.examDays !== null && u.examDays > MAX_HORIZON_DAYS
+      ? Object.assign({}, u, { examDays: null, examFarDays: u.examDays })
+      : u
+  );
   const examDays = examDayMap(start);
 
   let horizon = STEADY_HORIZON_DAYS;
@@ -403,14 +439,19 @@ export function buildSchedule(settings, startKey) {
     if (windowDays < 0) return;
     // Narrowed scope: one pass fewer per topic, so the same time covers the
     // material that matters most rather than spreading thinner.
-    const count = narrow ? Math.max(1, passCountForWindow(windowDays) - 1) : passCountForWindow(windowDays);
+    const count = Math.max(1, passCountForWindow(windowDays) - passesCut);
     const offsets = passOffsets(windowDays, count);
     const prio = priorityOf(u);
     offsets.forEach((off, i) => {
       let kind = kindForPass(u, i, count, windowDays - off);
       // Reading is the first thing to go when time is short.
-      if (narrow && kind === "read") kind = "quiz";
-      candidates.push({ preferred: off, priority: prio + (i === 0 ? 0.04 : 0), task: makeTask(kind, u, i) });
+      if (noReading && kind === "read") kind = "quiz";
+      candidates.push({
+        preferred: off,
+        limit: windowDays,
+        priority: prio + (i === 0 ? 0.04 : 0),
+        task: makeTask(kind, u, i)
+      });
     });
   });
 
@@ -451,10 +492,10 @@ export function buildSchedule(settings, startKey) {
             lastScore: null,
             lapse: null
           };
-          testCandidates.push({ preferred: off, priority: priorityOf(list[0]) + 0.03, task: makeTask("test", unit, 90 + pick) });
+          testCandidates.push({ preferred: off, limit: exam - 1, priority: priorityOf(list[0]) + 0.03, task: makeTask("test", unit, 90 + pick) });
         } else {
           const u = list[(pick - 1) % list.length];
-          testCandidates.push({ preferred: off, priority: priorityOf(u) + 0.02, task: makeTask("test", u, 90 + pick) });
+          testCandidates.push({ preferred: off, limit: exam - 1, priority: priorityOf(u) + 0.02, task: makeTask("test", u, 90 + pick) });
         }
       }
     }
@@ -477,14 +518,35 @@ export function buildSchedule(settings, startKey) {
   // same subject sitting next to each other.
   for (const k in days) days[k] = interleave(days[k]);
 
-  return { days: days, horizon: horizon, dropped: dropped, generatedFor: start };
+  return { days: days, horizon: horizon, dropped: dropped, generatedFor: start, trim: level };
+}
+
+/* The offsets to try, in order: the ideal day, then a few days either side,
+ * then every later day up to the task's own deadline. A task with two hundred
+ * free days behind it must never be thrown away because one week was busy. */
+function offsetsFor(c, ctx) {
+  const isTest = c.task.kind === "test";
+  const near = isTest ? [0, 1, -1, 2, -2, 3, -3] : [0, 1, -1, 2, -2, 3, -3, 4, 5];
+  const limit = Math.min(typeof c.limit === "number" ? c.limit : ctx.horizon, ctx.horizon);
+  const out = [];
+  const seen = {};
+  const push = (off) => {
+    if (off < 0 || off > limit || seen[off]) return;
+    seen[off] = true;
+    out.push(off);
+  };
+  near.forEach((d) => push(c.preferred + d));
+  for (let off = c.preferred + 6; off <= limit; off++) push(off);
+  // A pass may also slide earlier if the only room is behind it.
+  for (let off = c.preferred - 4; off >= 0; off--) push(off);
+  return out;
 }
 
 function placeTask(c, ctx) {
   const isTest = c.task.kind === "test";
-  const order = isTest ? [0, 1, -1, 2, -2, 3, -3] : [0, 1, -1, 2, -2, 3, -3, 4, 5];
+  const order = offsetsFor(c, ctx);
   for (let i = 0; i < order.length; i++) {
-    const off = c.preferred + order[i];
+    const off = order[i];
     if (off < 0 || off > ctx.horizon) continue;
     const key = addDays(ctx.start, off);
     const cap = capacityFor(ctx.settings, key);
@@ -556,6 +618,8 @@ export function planHealth(schedule, settings) {
     capacity: capacity,
     droppedMinutes: droppedMinutes,
     droppedCount: (schedule.dropped || []).length,
+    /* How much had to come out of the plan for it to fit: 0 means nothing did. */
+    trim: schedule.trim || 0,
     behind: droppedMinutes > 0
   };
 }
