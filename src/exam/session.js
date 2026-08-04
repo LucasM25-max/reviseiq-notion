@@ -22,6 +22,7 @@ import {
 import { collectNotes, titleCloud, subjectAncestor } from "./notes.js";
 import { saveAttempt, getAttempt, recordFromAttempt, unfinishedAttemptForPage } from "./insights.js";
 import { authHeaders } from "../cloud/auth.js";
+import { generateFlashcardsFromMisses } from "../quiz/flashcards.js";
 
 let session = null; // { attempt, view, timerId, error }
 let onClose = () => {};
@@ -514,6 +515,7 @@ async function submit(auto) {
     attempt.submittedAt = Date.now();
     saveAttempt(attempt);
     recordFromAttempt(attempt);
+    runFlashcards(attempt);
     session.view = "results";
     exitFullscreen(); // feedback is read normally, not under exam conditions
     paint();
@@ -525,6 +527,54 @@ async function submit(auto) {
     session.error = e.message;
     paint();
   }
+}
+
+/*
+ * Everything the examiner marked them down on becomes flashcards, written by
+ * Gemini to close the gap rather than to repeat the question.
+ */
+async function runFlashcards(attempt) {
+  const r = attempt.result;
+  if (!r) return;
+
+  const misses = [];
+  (r.questions || []).forEach((q) => {
+    (q.missedPoints || []).forEach((point) => {
+      misses.push({
+        topic: q.level || "Q" + q.number,
+        question: "",
+        detail: typeof point === "string" ? point : point.point || "",
+        explanation: q.examinerComment || ""
+      });
+    });
+  });
+  (r.missedContent || []).forEach((m) => {
+    misses.push({ topic: "Content", detail: typeof m === "string" ? m : m.point || "" });
+  });
+  (r.notesGaps || []).forEach((g) => {
+    misses.push({ topic: "Gap in notes", detail: typeof g === "string" ? g : g.point || "" });
+  });
+  (r.focusAreas || []).forEach((f) => {
+    misses.push({ topic: f.area || "Technique", detail: [f.why, f.action].filter(Boolean).join(" ") });
+  });
+
+  const usable = misses.filter((m) => m.detail);
+  if (!usable.length) return;
+
+  const out = await generateFlashcardsFromMisses({
+    pageId: attempt.pageId,
+    pageTitle: attempt.pageTitle,
+    subjectTitle: attempt.subjectTitle,
+    source: "test",
+    score: r.totalMark,
+    total: r.totalAvailable,
+    misses: usable.slice(0, 24)
+  });
+
+  attempt.cardsMade = (attempt.cardsMade || 0) + out.made;
+  attempt.cardsAiWritten = out.aiUsed;
+  saveAttempt(attempt);
+  if (session && session.attempt.id === attempt.id && session.view === "results") paint();
 }
 
 async function postJson(url, body) {
@@ -803,6 +853,12 @@ function renderResults(attempt) {
   html +=
     '<div class="result-foot">' +
     '<p>Your focus areas and missed points have been saved to <strong>Exam feedback</strong> on this page and on Today, so they don\u2019t vanish with this screen.</p>' +
+    (attempt.cardsMade
+      ? "<p>" + ui("cards", 14) + " <strong>" + attempt.cardsMade + " flashcard" +
+        (attempt.cardsMade === 1 ? "" : "s") + "</strong>" +
+        (attempt.cardsAiWritten ? " written by Gemini" : " built") +
+        " from what you were marked down on, under \u201cFlashcards from your mistakes\u201d on this page.</p>"
+      : "") +
     '<button class="btn-primary" data-exam-act="close">Done</button>' +
     "</div>";
 

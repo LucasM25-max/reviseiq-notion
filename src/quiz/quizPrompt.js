@@ -132,3 +132,66 @@ export function buildReviewPrompt(cfg) {
 
   return { system, user };
 }
+
+/**
+ * Flashcards written from what the student actually got wrong.
+ *
+ * cfg: {
+ *   source: "quiz" | "test",
+ *   pageTitle, subjectTitle,
+ *   score, total,
+ *   misses: [{ topic, question, correct, chose, explanation, detail }]
+ * }
+ *
+ * The model is asked to cover the underlying gap, not to parrot the question
+ * back, so a run of related mistakes can become one strong card.
+ */
+export function buildFlashcardPrompt(cfg) {
+  const fromExam = cfg.source === "test";
+
+  const system = [
+    "You are a tutor writing revision flashcards for a GCSE student, based only on the mistakes they have just made",
+    fromExam ? "in a marked exam paper." : "in a multiple-choice quiz on their own notes.",
+    "",
+    "PURPOSE",
+    "- Each card must close a real gap in knowledge or skill that the mistakes reveal.",
+    "- Cards are for repeated recall practice, so they must be answerable from memory.",
+    "",
+    "RULES",
+    "- Write between 3 and 12 cards. Fewer cards is better than padding.",
+    "- Merge related mistakes into one card. Never write one card per mistake mechanically.",
+    "- 'front' is a single question or prompt, 8 to 20 words, that forces recall. Never a yes/no question.",
+    "- 'front' must make sense on its own. Never write 'this question', 'the above' or 'option B'.",
+    "- 'back' is the answer in 1 to 3 short sentences, or up to 4 brief bullet-style clauses separated by '; '.",
+    "- 'back' must be specific and factual: names, dates, figures, causes, consequences, key terms.",
+    "- 'topic' is 2 to 5 words naming the gap the card closes.",
+    "- 'kind' is \"knowledge\" when the gap is a fact or concept, or \"skill\" when the gap is exam technique",
+    "  such as using evidence, explaining significance, comparing, or structuring an answer.",
+    "- Include at least one \"skill\" card when the mistakes show a technique problem rather than missing facts.",
+    "- Never mention the quiz, the paper, the marks, or that they got something wrong.",
+    "- Plain text only. No markdown, no numbering, no quotation marks around the whole field.",
+    "",
+    "Return JSON only, matching the schema exactly."
+  ].join("\n");
+
+  const lines = (cfg.misses || []).map((m, i) => {
+    const parts = [i + 1 + ". [" + (m.topic || "General") + "]"];
+    if (m.question) parts.push("Question: " + m.question);
+    if (m.correct) parts.push("Correct answer: " + m.correct);
+    if (m.chose) parts.push("They answered: " + m.chose);
+    if (m.explanation) parts.push("Note: " + m.explanation);
+    if (m.detail) parts.push("Detail: " + m.detail);
+    return parts.join("\n   ");
+  });
+
+  const user = [
+    "Subject: " + (cfg.subjectTitle || "Unknown"),
+    "Topic page: " + (cfg.pageTitle || "Untitled"),
+    "Score: " + (cfg.score || 0) + " out of " + (cfg.total || (cfg.misses || []).length) + ".",
+    "",
+    fromExam ? "Points and skills the examiner marked them down on:" : "What they got wrong:",
+    lines.join("\n")
+  ].join("\n");
+
+  return { system, user };
+}

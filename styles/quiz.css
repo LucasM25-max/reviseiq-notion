@@ -717,6 +717,10 @@
   color: var(--success);
 }
 
+.quiz-cards-made.is-error {
+  color: var(--warn-text, #7a5a20);
+}
+
 .quiz-section-label {
   margin: 28px 0 12px;
   font-size: 11px;

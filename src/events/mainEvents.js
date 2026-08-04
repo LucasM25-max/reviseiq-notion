@@ -407,7 +407,9 @@ export function initMainEvents() {
     if (t.matches("[data-table-cell]")) {
       const b = findBlockById(page.blocks, t.dataset.tableCell);
       if (b) {
-        b.rows[parseInt(t.dataset.r, 10)][parseInt(t.dataset.c, 10)] = t.textContent;
+        // Keep inline formatting (bold, italic, links) so it survives a
+        // re-render such as adding a row or a column.
+        b.rows[parseInt(t.dataset.r, 10)][parseInt(t.dataset.c, 10)] = sanitizeHtmlFragment(t.innerHTML);
         scheduleSave();
       }
       return;
@@ -438,10 +440,18 @@ export function initMainEvents() {
   });
 
   mainInner.addEventListener("focusout", (e) => {
-    if (e.target.classList && e.target.classList.contains("rt")) removeToolbar();
+    const isRich =
+      (e.target.classList && e.target.classList.contains("rt")) ||
+      (e.target.dataset && e.target.dataset.tableCell);
+    if (isRich) removeToolbar();
   });
 
   mainInner.addEventListener("mouseup", (e) => {
+    const cell = e.target.closest("[data-table-cell]");
+    if (cell) {
+      setTimeout(() => maybeShowToolbar(cell, cell.dataset.tableCell), 0);
+      return;
+    }
     const rt = e.target.closest(".rt");
     if (rt) {
       const row = rt.closest(".block-row");
@@ -452,6 +462,12 @@ export function initMainEvents() {
 
   mainInner.addEventListener("keyup", (e) => {
     if (["Shift", "Control", "Alt", "Meta"].indexOf(e.key) > -1) return;
+    const cell = e.target.closest ? e.target.closest("[data-table-cell]") : null;
+    if (cell) {
+      if (window.getSelection().toString().length > 0) maybeShowToolbar(cell, cell.dataset.tableCell);
+      else removeToolbar();
+      return;
+    }
     const rt = e.target.closest ? e.target.closest(".rt") : null;
     if (rt && window.getSelection().toString().length > 0) {
       const row = rt.closest(".block-row");

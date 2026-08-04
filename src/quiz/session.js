@@ -11,7 +11,6 @@ import { getPage, getChildren } from "../state.js";
 import { escapeHtml, uid } from "../utils.js";
 import { scheduleSave } from "../storage.js";
 import { ui } from "../icons.js";
-import { newBlock } from "../model.js";
 import { collectNotes, subjectAncestor } from "../exam/notes.js";
 import {
   MIN_QUIZ_WORDS,
@@ -26,6 +25,7 @@ import {
   recordQuizInsights
 } from "./store.js";
 import { authHeaders } from "../cloud/auth.js";
+import { generateFlashcardsFromMisses } from "./flashcards.js";
 
 let session = null; // { attempt, view, error, tickId }
 let onClose = () => {};
@@ -449,7 +449,7 @@ function handleOverlayClick(e) {
     if (el) el.hidden = true;
   } else if (act === "finish") finish();
   else if (act === "review") runReview();
-  else if (act === "flashcards") makeFlashcards();
+  else if (act === "flashcards") runFlashcards();
   else if (act === "retry") {
     const a = session.attempt;
     closeQuiz(true);
@@ -526,7 +526,9 @@ function finish() {
     percentage: Math.round((score / questions.length) * 100),
     wrong,
     focusAreas: [],
-    reviewState: wrong.length ? "idle" : "none"
+    reviewState: wrong.length ? "idle" : "none",
+    cardState: wrong.length ? "idle" : "none",
+    cardError: null
   };
   stopTick();
   saveQuizAttempt(a);
@@ -538,8 +540,12 @@ function finish() {
   if (shell) shell.classList.add("is-review");
   paint();
 
-  // The weak-spot summary is worth having, so ask for it straight away.
-  if (wrong.length) runReview();
+  // The weak-spot summary and the flashcards are both worth having, so ask
+  // for them straight away. Cards are the point of a quiz, not an extra step.
+  if (wrong.length) {
+    runReview();
+    runFlashcards();
+  }
 }
 
 async function runReview() {
@@ -614,26 +620,39 @@ function retryWrong() {
  * Wrong answers -> flashcards on the page
  * ------------------------------------------------------------------ */
 
-function makeFlashcards() {
+async function runFlashcards() {
   const a = session.attempt;
   const page = getPage(a.pageId);
   if (!page || !a.result || !a.result.wrong.length) return;
+  if (a.result.cardState === "loading") return;
 
-  let made = 0;
-  a.result.wrong.forEach((w) => {
-    const card = newBlock("toggle");
-    card.summary = escapeHtml(w.question);
-    const answer = newBlock("paragraph");
-    answer.content =
-      "<strong>" + escapeHtml(w.correct || "") + "</strong>" +
-      (w.explanation ? " \u2014 " + escapeHtml(w.explanation) : "");
-    card.children = [answer];
-    card.collapsed = true;
-    page.blocks.push(card);
-    made += 1;
+  a.result.cardState = "loading";
+  a.result.cardError = null;
+  paint();
+
+  const out = await generateFlashcardsFromMisses({
+    pageId: a.pageId,
+    pageTitle: a.pageTitle,
+    subjectTitle: a.subjectTitle,
+    source: "quiz",
+    score: a.result.score,
+    total: a.result.total,
+    misses: a.result.wrong.map((w) => ({
+      topic: w.topic,
+      question: w.question,
+      correct: w.correct,
+      chose: w.chose,
+      explanation: w.explanation
+    }))
   });
 
-  a.cardsMade = (a.cardsMade || 0) + made;
+  if (!session || session.attempt.id !== a.id) return;
+  a.cardsMade = (a.cardsMade || 0) + out.made;
+  a.result.cardsAiWritten = out.aiUsed;
+  a.result.cardState = out.made ? "done" : "error";
+  a.result.cardError = out.made
+    ? null
+    : out.error || "Couldn\u2019t write flashcards from this one.";
   saveQuizAttempt(a);
   scheduleSave();
   paint();
@@ -824,23 +843,38 @@ function renderResults(attempt) {
   html += renderWeakSpots(r);
 
   if (r.wrong.length) {
-    const madeAll = (attempt.cardsMade || 0) >= r.wrong.length;
+    const state = r.cardState || "idle";
+    html += '<div class="quiz-actions">';
+    if (state === "loading") {
+      html +=
+        '<button class="btn-primary" disabled><span class="quiz-spinner small"></span>' +
+        "Writing flashcards from your mistakes\u2026</button>";
+    } else if (state === "done") {
+      html +=
+        '<button class="btn-primary" data-quiz-act="flashcards">' + ui("cards", 15) +
+        "Write more flashcards</button>";
+    } else {
+      html +=
+        '<button class="btn-primary" data-quiz-act="flashcards">' + ui("cards", 15) +
+        (state === "error" ? "Try flashcards again" : "Write flashcards from my mistakes") +
+        "</button>";
+    }
     html +=
-      '<div class="quiz-actions">' +
-      '<button class="btn-primary" data-quiz-act="flashcards"' + (madeAll ? " disabled" : "") + ">" +
-      ui("cards", 15) +
-      (madeAll
-        ? "Flashcards added (" + attempt.cardsMade + ")"
-        : "Turn " + r.wrong.length + " miss" + (r.wrong.length === 1 ? "" : "es") + " into flashcards") +
-      "</button>" +
       '<button class="btn-ghost" data-quiz-act="retry-wrong">Retake wrong only</button>' +
       '<button class="btn-ghost" data-quiz-act="retry">New quiz on this page</button>' +
       "</div>";
-    if (attempt.cardsMade) {
+
+    if (state === "error") {
+      html +=
+        '<div class="quiz-cards-made is-error">' + ui("warning", 13) + " " +
+        escapeHtml(r.cardError || "Couldn\u2019t write flashcards from this one.") + "</div>";
+    } else if (attempt.cardsMade) {
       html +=
         '<div class="quiz-cards-made">' + ui("check", 13) + " " + attempt.cardsMade +
         " flashcard" + (attempt.cardsMade === 1 ? "" : "s") +
-        " added to the bottom of this page. They are in your revision schedule from today.</div>";
+        (r.cardsAiWritten ? " written by Gemini" : " built") +
+        " from what you got wrong, under \u201cFlashcards from your mistakes\u201d on this page." +
+        " They are in your revision schedule from today.</div>";
     }
   } else {
     html +=

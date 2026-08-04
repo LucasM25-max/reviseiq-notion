@@ -1,5 +1,5 @@
 // Pure HTML rendering for blocks.
-import { escapeHtml } from "../utils.js";
+import { escapeHtml, sanitizeHtmlFragment } from "../utils.js";
 import { getPage, getChildren } from "../state.js";
 import { iconImg, ui, DEFAULT_CALLOUT_ICON } from "../icons.js";
 
@@ -191,7 +191,7 @@ export function renderTableBlock(block) {
     html += "<tr>";
     row.forEach((cell, ci) => {
       html +=
-        '<td contenteditable="true" data-table-cell="' + block.id + '" data-r="' + ri + '" data-c="' + ci + '">' + escapeHtml(cell) + "</td>";
+        '<td contenteditable="true" data-table-cell="' + block.id + '" data-r="' + ri + '" data-c="' + ci + '">' + sanitizeHtmlFragment(cell) + "</td>";
     });
     html += "</tr>";
   });

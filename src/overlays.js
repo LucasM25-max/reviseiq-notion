@@ -2,7 +2,7 @@
 // emoji/icon pickers and the confirm modal.
 import { store, getPage, findBlockById, findContainer } from "./state.js";
 import { newPageObject } from "./model.js";
-import { escapeHtml, uid } from "./utils.js";
+import { escapeHtml, sanitizeHtmlFragment, uid } from "./utils.js";
 import { ICON_KEYS, CALLOUT_ICON_KEYS, iconImg, ui } from "./icons.js";
 import { BLOCK_TYPES, matchBlockTypes } from "./blockTypes.js";
 import { updateBlockField, convertBlockType, duplicateBlock, deleteBlockById, moveBlock } from "./blocks.js";
@@ -130,7 +130,17 @@ export function maybeShowToolbar(el, blockId) {
       document.execCommand(cmd, false, null);
     }
     const page = getPage(store.state.activePageId);
-    if (page) updateBlockField(page, blockId, { content: el.innerHTML });
+    if (page) {
+      if (el.dataset && el.dataset.tableCell) {
+        // Table cells live in block.rows, not block.content.
+        const tb = findBlockById(page.blocks, el.dataset.tableCell);
+        const ri = parseInt(el.dataset.r, 10);
+        const ci = parseInt(el.dataset.c, 10);
+        if (tb && tb.rows && tb.rows[ri]) tb.rows[ri][ci] = sanitizeHtmlFragment(el.innerHTML);
+      } else {
+        updateBlockField(page, blockId, { content: el.innerHTML });
+      }
+    }
     scheduleSave();
   });
 }

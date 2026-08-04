@@ -15,6 +15,13 @@ import { registerServiceWorker, initConnectivityNotices } from "./pwa.js";
 import { initCloud } from "./cloud/index.js";
 
 function boot() {
+  // Formatting must come out as <b>/<i>/<u> tags, not styled spans, so it
+  // survives being sanitised and re-rendered (notably inside tables).
+  try {
+    document.execCommand("styleWithCSS", false, false);
+  } catch (e) {
+    /* not supported: formatting still works, just less tidily */
+  }
   // The slash menu (convert block type) and block context menu
   // (move/duplicate/delete) share this hook. Using the lightweight
   // block-list renderer here keeps the user's scroll position instead of

@@ -14,10 +14,24 @@ export function renderSidebar() {
   renderDuePill();
   const tree = document.getElementById("sidebar-tree");
   let html = "";
-  store.state.rootPageIds.forEach((id) => {
-    if (store.state.pages[id]) html += renderSidebarNode(id, 0);
+  // Subjects are listed A-Z so the sidebar stays predictable however they
+  // were created. Sub-pages keep the order the student put them in.
+  sortedByTitle(store.state.rootPageIds).forEach((id) => {
+    html += renderSidebarNode(id, 0);
   });
   tree.innerHTML = html;
+}
+
+/* Existing page ids, sorted by title, case- and number-aware. */
+function sortedByTitle(ids) {
+  return (ids || [])
+    .filter((id) => store.state.pages[id])
+    .slice()
+    .sort((a, b) => {
+      const ta = store.state.pages[a].title || "Untitled";
+      const tb = store.state.pages[b].title || "Untitled";
+      return ta.localeCompare(tb, undefined, { sensitivity: "base", numeric: true });
+    });
 }
 
 export function renderNextExamBanner() {

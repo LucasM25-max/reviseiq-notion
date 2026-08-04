@@ -31,9 +31,13 @@ export function convertBlockType(page, blockId, newType) {
   const b = findBlockById(page.blocks, blockId);
   if (!b) return;
   const keepContent = b.content !== undefined ? b.content : b.summary !== undefined ? b.summary : "";
+  // The block keeps its identity across a type change, so anything holding a
+  // reference to it (revision records, links, focus) still resolves.
+  const keepId = b.id;
   const freshDefaults = newBlock(newType);
   for (const k in b) delete b[k];
   for (const k in freshDefaults) b[k] = freshDefaults[k];
+  b.id = keepId;
   if (b.content !== undefined) b.content = keepContent;
   if (b.summary !== undefined) b.summary = keepContent;
 }
