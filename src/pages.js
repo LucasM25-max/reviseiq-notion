@@ -142,8 +142,8 @@ export function openCalendarView() {
   renderMain();
 }
 
-export function openTodayView() {
-  store.currentView = "today";
+export function openPlanView() {
+  store.currentView = "plan";
   closeAllFloating();
   renderSidebar();
   renderMain();

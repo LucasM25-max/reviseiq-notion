@@ -10,7 +10,9 @@ export function renderSidebar() {
   const calBtn = document.getElementById("calendar-nav-btn");
   if (calBtn) calBtn.classList.toggle("active", store.currentView === "calendar");
   const todayBtn = document.getElementById("today-nav-btn");
-  if (todayBtn) todayBtn.classList.toggle("active", store.currentView === "today");
+  if (todayBtn) todayBtn.classList.toggle("active", store.currentView === "plan");
+  const reviseBtn = document.getElementById("revise-nav-btn");
+  if (reviseBtn) reviseBtn.classList.toggle("active", store.currentView === "flashcards");
   renderDuePill();
   const tree = document.getElementById("sidebar-tree");
   let html = "";

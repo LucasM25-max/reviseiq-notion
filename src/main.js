@@ -6,10 +6,10 @@ import { renderMain, renderBlocksOnly } from "./render/main.js";
 import { initGlobalDismiss, setRerenderMain } from "./overlays.js";
 import { initMainEvents } from "./events/mainEvents.js";
 import { initSidebarEvents } from "./events/sidebarEvents.js";
-import { setReviseCloseHandler, startRevise } from "./render/revise.js";
+import { setFlashcardsCloseHandler, setFlashcardsRerender, startFlashcards } from "./render/flashcards.js";
 import { setTestCloseHandler } from "./exam/session.js";
 import { setQuizCloseHandler } from "./quiz/session.js";
-import { navigateTo, openTodayView } from "./pages.js";
+import { navigateTo, openPlanView } from "./pages.js";
 import { initMobileEvents } from "./events/mobileEvents.js";
 import { registerServiceWorker, initConnectivityNotices } from "./pwa.js";
 import { initCloud } from "./cloud/index.js";
@@ -28,7 +28,8 @@ function boot() {
   // jumping back to the top of the page every time a block is added,
   // converted, moved, duplicated, or deleted.
   setRerenderMain(renderBlocksOnly);
-  setReviseCloseHandler((pageId) => {
+  setFlashcardsRerender(() => renderMain());
+  setFlashcardsCloseHandler((pageId) => {
     if (pageId && getPage(pageId)) {
       navigateTo(pageId);
       return;
@@ -55,8 +56,8 @@ function boot() {
 
   if (!store.state.activePageId || !getPage(store.state.activePageId)) {
     store.state.activePageId = store.state.rootPageIds[0] || null;
-    // Land on the Today dashboard rather than a blank page.
-    store.currentView = "today";
+    // Land on the plan rather than a blank page.
+    store.currentView = "plan";
   }
 
   renderSidebar();
@@ -74,13 +75,13 @@ function boot() {
   });
 }
 
-/* Home-screen shortcuts land on /?view=today or /?view=revise. */
+/* Home-screen shortcuts land on /?view=plan or /?view=flashcards. */
 function applyLaunchShortcut() {
   const view = new URLSearchParams(location.search).get("view");
   if (!view) return;
   history.replaceState(null, "", location.pathname);
-  if (view === "today") openTodayView();
-  else if (view === "revise") startRevise({ type: "all" });
+  if (view === "plan" || view === "today") openPlanView();
+  else if (view === "flashcards" || view === "revise") startFlashcards({ type: "all" });
 }
 
 if (document.readyState === "loading") {

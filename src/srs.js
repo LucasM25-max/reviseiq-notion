@@ -294,6 +294,33 @@ export function shakyPages(limit) {
  * Pages with notes but no flashcards, inside a subject whose exam is close.
  * This catches the real failure mode: never having made cards for a topic.
  */
+export function pageHasBeenTested(pageId) {
+  const quizzes = store.state.quizzes || {};
+  for (const k in quizzes) {
+    if (quizzes[k] && quizzes[k].pageId === pageId && quizzes[k].result) return true;
+  }
+  const tests = store.state.tests || {};
+  for (const k in tests) {
+    if (tests[k] && tests[k].pageId === pageId && tests[k].result) return true;
+  }
+  return false;
+}
+
+export function pageWrittenOn(page) {
+  if (!page) return false;
+  return (page.blocks || []).some((b) => {
+    if (!b) return false;
+    if (b.type === "page" || b.type === "divider") return false;
+    return String(b.content || "").replace(/<[^>]+>/g, "").trim().length > 0;
+  });
+}
+
+/**
+ * Pages with notes that have never been examined in any way: no flashcards,
+ * no quiz, no mock paper. Having no flashcards on its own is NOT a gap -
+ * cards are meant to be generated from what you get wrong, so a topic you
+ * have quizzed and passed needs no cards written for it.
+ */
 export function coverageGaps(withinDays, limit) {
   const horizon = withinDays === undefined ? 30 : withinDays;
   const rows = [];
@@ -303,12 +330,8 @@ export function coverageGaps(withinDays, limit) {
     const days = subjectExamDays(subject);
     if (days === null || days > horizon) continue;
     if (cardsForPage(id).length > 0) continue;
-    const written = (page.blocks || []).some((b) => {
-      if (!b) return false;
-      if (b.type === "page" || b.type === "divider") return false;
-      return String(b.content || "").replace(/<[^>]+>/g, "").trim().length > 0;
-    });
-    if (!written) continue;
+    if (pageHasBeenTested(id)) continue;
+    if (!pageWrittenOn(page)) continue;
     rows.push({
       pageId: id,
       title: page.title || "Untitled",
@@ -319,6 +342,32 @@ export function coverageGaps(withinDays, limit) {
   }
   rows.sort((a, b) => a.examDays - b.examDays);
   return rows.slice(0, limit || 5);
+}
+
+/** Mean position on the interval ladder for a set of cards, 0..1. */
+export function maturityOf(cards) {
+  if (!cards.length) return 0;
+  let sum = 0;
+  cards.forEach((c) => {
+    const rec = getRecord(c.id);
+    const step = rec && typeof rec.step === "number" ? rec.step : -1;
+    sum += step < 0 ? 0 : (step + 1) / STEPS.length;
+  });
+  return sum / cards.length;
+}
+
+/** Share of reviews forgotten across a set of cards, 0..1 (null if untested). */
+export function lapseRateOf(cards) {
+  let reps = 0;
+  let lapses = 0;
+  cards.forEach((c) => {
+    const rec = getRecord(c.id);
+    if (!rec) return;
+    reps += rec.reps || 0;
+    lapses += rec.lapses || 0;
+  });
+  if (reps < 2) return null;
+  return lapses / reps;
 }
 
 /**

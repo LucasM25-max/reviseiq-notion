@@ -26,6 +26,7 @@ import {
 } from "./store.js";
 import { authHeaders } from "../cloud/auth.js";
 import { generateFlashcardsFromMisses } from "./flashcards.js";
+import { completeTaskForPage } from "../plan/store.js";
 
 let session = null; // { attempt, view, error, tickId }
 let onClose = () => {};
@@ -520,6 +521,8 @@ function finish() {
   a.resumedAt = null;
   a.finishedAt = Date.now();
   a.status = "marked";
+  // Doing the work is what ticks the plan off, not a separate checkbox.
+  completeTaskForPage(a.pageId, ["quiz", "read"]);
   a.result = {
     score,
     total: questions.length,

@@ -7,9 +7,9 @@ import {
   toggleExpanded,
   confirmDeletePage,
   openCalendarView,
-  openTodayView
+  openPlanView
 } from "../pages.js";
-import { startRevise } from "../render/revise.js";
+import { startFlashcards } from "../render/flashcards.js";
 import { downloadBackup, readBackupFile, applyRestore, summarise } from "../backup.js";
 import { showConfirmModal, showPageMenu } from "../overlays.js";
 import { renderSidebar } from "../render/sidebar.js";
@@ -72,9 +72,9 @@ export function initSidebarEvents() {
   });
 
   document.getElementById("btn-new-subject").addEventListener("click", () => createSubjectPage(""));
-  document.getElementById("today-nav-btn").addEventListener("click", () => openTodayView());
+  document.getElementById("today-nav-btn").addEventListener("click", () => openPlanView());
   document.getElementById("calendar-nav-btn").addEventListener("click", () => openCalendarView());
-  document.getElementById("revise-nav-btn").addEventListener("click", () => startRevise({ type: "all" }));
+  document.getElementById("revise-nav-btn").addEventListener("click", () => startFlashcards({ type: "all" }));
 
   document.getElementById("btn-export").addEventListener("click", () => downloadBackup());
 

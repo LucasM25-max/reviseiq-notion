@@ -19,10 +19,11 @@ import {
   MIN_NOTE_WORDS,
   formatDuration
 } from "./aqaHistory.js";
-import { collectNotes, titleCloud, subjectAncestor } from "./notes.js";
+import { collectNotes, titleCloud, subjectAncestor, pageWordCount } from "./notes.js";
 import { saveAttempt, getAttempt, recordFromAttempt, unfinishedAttemptForPage } from "./insights.js";
 import { authHeaders } from "../cloud/auth.js";
 import { generateFlashcardsFromMisses } from "../quiz/flashcards.js";
+import { completeTaskForPage } from "../plan/store.js";
 
 let session = null; // { attempt, view, timerId, error }
 let onClose = () => {};
@@ -68,6 +69,60 @@ export function testEligibility(pageId) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Full papers (subject level)
+ * ------------------------------------------------------------------ */
+
+/*
+ * A real AQA History paper is two sections sat back to back, one hour each.
+ * On a subject page you can therefore sit the whole two hour paper: pick
+ * Paper 1 (Section A + Section B) or Paper 2 (Section A + Section B), then
+ * choose which of your topic pages each section is written from.
+ */
+const SECTION_LETTERS = ["A", "B"];
+
+export const PAPER_PAIRS = [
+  { key: "P1", label: "Paper 1: Understanding the modern world", sections: ["P1SA", "P1SB"] },
+  { key: "P2", label: "Paper 2: Shaping the nation", sections: ["P2SA", "P2SB"] }
+];
+
+export function paperPairByKey(key) {
+  return PAPER_PAIRS.filter((p) => p.key === key)[0] || null;
+}
+
+function pairMinutes(pair) {
+  return pair.sections.reduce((sum, cid) => sum + COMPONENTS[cid].timeLimitMinutes, 0);
+}
+
+/**
+ * Null unless this is a top level AQA History subject page with at least two
+ * topic pages worth examining. Otherwise { subject, topics: [...] }.
+ */
+export function fullPaperEligibility(pageId) {
+  const page = getPage(pageId);
+  if (!page || page.type !== "subject") return null;
+  if (!HISTORY_TITLE_MATCH.test(page.title || "")) return null;
+  if (page.examBoard !== "AQA") return null;
+
+  const topics = [];
+  getChildren(pageId).forEach((child) => {
+    const notes = collectNotes(child.id, true);
+    if (notes.wordCount < MIN_NOTE_WORDS) return;
+    const saved = child.examOptionId ? optionById(child.examOptionId) : null;
+    const guess = saved ? { option: saved } : inferOption(titleCloud(child.id).concat([notes.text.slice(0, 4000)]));
+    topics.push({
+      pageId: child.id,
+      title: child.title || "Untitled",
+      words: notes.wordCount,
+      ownWords: pageWordCount(child.id),
+      optionId: guess && guess.option ? guess.option.id : ""
+    });
+  });
+
+  if (topics.length < 2) return null;
+  return { subject: page, topics: topics };
+}
+
+/* ------------------------------------------------------------------ *
  * Setup card
  * ------------------------------------------------------------------ */
 
@@ -76,15 +131,35 @@ export function openTestSetup(pageId) {
   if (!el) return;
 
   const existing = unfinishedAttemptForPage(pageId);
+  const full = fullPaperEligibility(pageId);
   const modal = document.createElement("div");
   modal.className = "modal-overlay exam-setup-overlay";
   modal.id = "exam-setup";
-  modal.innerHTML = renderSetup(el, existing);
+  modal.innerHTML = renderSetup(el, existing, full);
   document.getElementById("overlay-root").appendChild(modal);
 
   modal.addEventListener("mousedown", (e) => {
     if (e.target === modal) modal.remove();
   });
+
+  const syncMode = () => {
+    const modeEl = modal.querySelector('input[name="exam-mode"]:checked');
+    const mode = modeEl ? modeEl.value : "section";
+    modal.querySelectorAll("[data-mode-block]").forEach((el2) => {
+      el2.hidden = el2.dataset.modeBlock !== mode;
+    });
+    if (mode === "full") {
+      const pairEl = modal.querySelector('input[name="exam-pair"]:checked');
+      const pairKey = pairEl ? pairEl.value : "P1";
+      modal.querySelectorAll("[data-pair-block]").forEach((el2) => {
+        el2.hidden = el2.dataset.pairBlock !== pairKey;
+      });
+    }
+    const startBtn = modal.querySelector('[data-setup-act="start"]');
+    if (startBtn) {
+      startBtn.textContent = mode === "full" ? "Start full paper" : "Start mock exam";
+    }
+  };
 
   modal.addEventListener("change", (e) => {
     const sel = e.target.closest("#exam-option");
@@ -93,7 +168,16 @@ export function openTestSetup(pageId) {
       const siteRow = modal.querySelector("#exam-site-row");
       if (siteRow) siteRow.hidden = !(opt && opt.siteRequired);
     }
+    if (e.target.name === "exam-mode" || e.target.name === "exam-pair") syncMode();
+    const fullSel = e.target.closest("[data-full-option]");
+    if (fullSel) {
+      const opt = optionById(fullSel.value);
+      const row = modal.querySelector("#full-site-row");
+      if (row) row.hidden = !fullNeedsSite(modal);
+      if (opt) { /* keep the chosen option; nothing else to sync */ }
+    }
   });
+  syncMode();
 
   modal.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-setup-act]");
@@ -119,6 +203,15 @@ export function openTestSetup(pageId) {
       return;
     }
     if (act !== "start") return;
+
+    const modeEl = modal.querySelector('input[name="exam-mode"]:checked');
+    if (modeEl && modeEl.value === "full") {
+      const cfg = readFullPaperSetup(modal, pageId);
+      if (!cfg) return;
+      modal.remove();
+      startFullPaper(cfg);
+      return;
+    }
 
     const optionId = modal.querySelector("#exam-option").value;
     const option = optionById(optionId);
@@ -147,7 +240,66 @@ export function openTestSetup(pageId) {
   });
 }
 
-function renderSetup(el, existing) {
+function fullNeedsSite(modal) {
+  const pairEl = modal.querySelector('input[name="exam-pair"]:checked');
+  const pairKey = pairEl ? pairEl.value : "P1";
+  const block = modal.querySelector('[data-pair-block="' + pairKey + '"]');
+  if (!block) return false;
+  let needs = false;
+  block.querySelectorAll("[data-full-option]").forEach((sel) => {
+    const opt = optionById(sel.value);
+    if (opt && opt.siteRequired) needs = true;
+  });
+  return needs;
+}
+
+function readFullPaperSetup(modal, pageId) {
+  const pairEl = modal.querySelector('input[name="exam-pair"]:checked');
+  const pair = paperPairByKey(pairEl ? pairEl.value : "P1");
+  if (!pair) return null;
+  const block = modal.querySelector('[data-pair-block="' + pair.key + '"]');
+  if (!block) return null;
+
+  const warn = modal.querySelector("#full-warn");
+  const sections = [];
+  let bad = "";
+  pair.sections.forEach((cid, i) => {
+    const topicSel = block.querySelector('[data-full-topic="' + i + '"]');
+    const optSel = block.querySelector('[data-full-option="' + i + '"]');
+    const topicId = topicSel ? topicSel.value : "";
+    const option = optSel ? optionById(optSel.value) : null;
+    if (!topicId || !option) bad = "Choose a topic and an option for both sections.";
+    sections.push({ componentId: cid, optionId: option ? option.id : "", pageId: topicId });
+  });
+  if (!bad && sections[0].pageId === sections[1].pageId) {
+    bad = "Pick two different topics \u2014 the two sections examine different parts of the course.";
+  }
+
+  const siteInput = modal.querySelector("#full-site");
+  const site = siteInput ? siteInput.value.trim() : "";
+  if (!bad && fullNeedsSite(modal) && !site) bad = "Enter your historic environment site before starting.";
+
+  if (bad) {
+    if (warn) {
+      warn.textContent = bad;
+      warn.hidden = false;
+    }
+    return null;
+  }
+
+  // Remember the mapping so next time it is one click.
+  sections.forEach((sec) => {
+    const p = getPage(sec.pageId);
+    if (p) p.examOptionId = sec.optionId;
+  });
+  const subject = getPage(pageId);
+  if (site && subject) subject.historicSite = site;
+  scheduleSave();
+
+  return { pageId: pageId, pairKey: pair.key, sections: sections, site: site };
+}
+
+function renderSetup(el, existing, full) {
   const component = el.option ? COMPONENTS[el.option.componentId] : null;
   const treeNotes = collectNotes(el.pageId, true);
   const pageNotes = collectNotes(el.pageId, false);
@@ -170,6 +322,25 @@ function renderSetup(el, existing) {
       '<button class="btn-ghost" data-setup-act="discard" data-test-id="' + existing.id + '">Discard</button>' +
       '<button class="btn-primary" data-setup-act="resume" data-test-id="' + existing.id + '">Resume</button>' +
       "</div></div>";
+  }
+
+  if (full) {
+    const pairs = PAPER_PAIRS.map(
+      (p) => escapeHtml(p.label) + " (" + pairMinutes(p) + " min)"
+    );
+    html += '<label class="exam-field-label">How much do you want to sit?</label>';
+    html += '<div class="exam-modes">';
+    html +=
+      '<label class="exam-mode-row"><input type="radio" name="exam-mode" value="section" checked />' +
+      '<span><strong>One section</strong><span class="exam-scope-meta">60 minutes \u00b7 one section from these notes</span></span></label>';
+    html +=
+      '<label class="exam-mode-row"><input type="radio" name="exam-mode" value="full" />' +
+      '<span><strong>Full paper</strong><span class="exam-scope-meta">2 hours \u00b7 both sections back to back, exactly like the real thing</span></span></label>';
+    html += '</div>';
+    html += renderFullBlock(full);
+    html += '<div data-mode-block="section">';
+  } else {
+    html += '<div data-mode-block="section">';
   }
 
   html += '<label class="exam-field-label" for="exam-option">Which part of the course?</label>';
@@ -232,11 +403,78 @@ function renderSetup(el, existing) {
       '<div class="exam-warn">These notes are short (' + el.words + " words). A paper built from them will be thin \u2014 add more first for a useful mock.</div>";
   }
 
+  html += "</div>"; // section-mode block
+
   html +=
     '<div class="modal-actions">' +
     '<button class="btn-cancel" data-setup-act="cancel">Cancel</button>' +
     '<button class="btn-primary" data-setup-act="start">Start mock exam</button>' +
     "</div></div>";
+  return html;
+}
+
+/* The two-section picker. Both papers are rendered and one is shown, so the
+   option lists never have to be rebuilt by hand. */
+function renderFullBlock(full) {
+  let html = '<div data-mode-block="full" class="exam-full" hidden>';
+
+  html += '<label class="exam-field-label">Which paper?</label><div class="exam-modes">';
+  PAPER_PAIRS.forEach((p, i) => {
+    html +=
+      '<label class="exam-mode-row"><input type="radio" name="exam-pair" value="' + p.key + '"' +
+      (i === 0 ? " checked" : "") + ' /><span><strong>' + escapeHtml(p.label) + '</strong>' +
+      '<span class="exam-scope-meta">' + p.sections.map((cid) => COMPONENTS[cid].short).join(" + ") +
+      ' \u00b7 ' + p.sections.reduce((n, cid) => n + COMPONENTS[cid].totalMarks, 0) + ' marks \u00b7 ' +
+      pairMinutes(p) + ' minutes</span></span></label>';
+  });
+  html += '</div>';
+
+  PAPER_PAIRS.forEach((p, pi) => {
+    html += '<div data-pair-block="' + p.key + '"' + (pi === 0 ? "" : " hidden") + '>';
+    p.sections.forEach((cid, i) => {
+      const c = COMPONENTS[cid];
+      const letter = SECTION_LETTERS[i];
+      html +=
+        '<div class="exam-full-row">' +
+        '<div class="exam-full-head"><strong>Section ' + letter + '</strong><span>' +
+        escapeHtml(c.section) + ' \u00b7 ' + c.totalMarks + ' marks \u00b7 ' + c.timeLimitMinutes + ' minutes</span></div>';
+
+      html += '<div class="exam-full-fields">';
+      html += '<label class="exam-full-field"><span>Topic from your notes</span><select class="exam-select" data-full-topic="' + i + '">';
+      full.topics.forEach((t, ti) => {
+        const opt = t.optionId ? optionById(t.optionId) : null;
+        const matches = opt && opt.componentId === cid;
+        const selected = matches ? " selected" : "";
+        html +=
+          '<option value="' + t.pageId + '"' + (selected || (ti === i && !full.topics.some((x) => {
+            const o = x.optionId ? optionById(x.optionId) : null;
+            return o && o.componentId === cid;
+          }) ? " selected" : "")) + '>' + escapeHtml(t.title) + ' (' + t.words + ' words)</option>';
+      });
+      html += '</select></label>';
+
+      html += '<label class="exam-full-field"><span>Option examined</span><select class="exam-select" data-full-option="' + i + '">';
+      optionsForComponent(cid).forEach((o) => {
+        const guessed = full.topics.some((t) => t.optionId === o.id);
+        html += '<option value="' + o.id + '"' + (guessed ? " selected" : "") + '>' + escapeHtml(o.label) + '</option>';
+      });
+      html += '</select></label></div></div>';
+    });
+    html += '</div>';
+  });
+
+  html +=
+    '<div id="full-site-row" class="exam-site-row" hidden>' +
+    '<label class="exam-field-label" for="full-site">Your historic environment site this year</label>' +
+    '<input id="full-site" class="exam-input" type="text" spellcheck="false" placeholder="e.g. Pevensey Castle" value="' +
+    escapeHtml(full.subject.historicSite || "") + '" />' +
+    '<div class="exam-field-note">Paper 2 Section B always ends on the specified site.</div></div>';
+
+  html +=
+    '<div class="exam-field-note">Both sections are generated up front, then you sit them under one ' +
+    'continuous clock with no break \u2014 the paper submits itself at the end.</div>';
+  html += '<div class="exam-warn" id="full-warn" hidden></div>';
+  html += '</div>';
   return html;
 }
 
@@ -357,6 +595,144 @@ export async function startTest(cfg) {
     session.error = e.message;
     paint();
   }
+}
+
+/*
+ * A full paper: two sections generated up front, then sat back to back under
+ * one continuous clock. The clock is whatever the real paper gets - two
+ * sections of an hour each - never a made up round number.
+ */
+export async function startFullPaper(cfg) {
+  const subject = getPage(cfg.pageId);
+  const pair = paperPairByKey(cfg.pairKey);
+  if (!subject || !pair) return;
+
+  const sections = cfg.sections.map((sec, i) => {
+    const component = COMPONENTS[sec.componentId];
+    const option = optionById(sec.optionId);
+    const page = getPage(sec.pageId);
+    return {
+      letter: SECTION_LETTERS[i] || String(i + 1),
+      componentId: component.id,
+      componentShort: component.short,
+      sectionTitle: component.section,
+      optionId: option ? option.id : "",
+      optionLabel: option ? option.label : "",
+      pageId: sec.pageId,
+      pageTitle: page ? page.title || "Untitled" : "",
+      minutes: component.timeLimitMinutes,
+      paper: null,
+      marked: null
+    };
+  });
+
+  const attempt = {
+    id: uid(),
+    pageId: cfg.pageId,
+    pageTitle: subject.title || "Untitled",
+    subjectTitle: subject.title || "",
+    fullPaper: true,
+    pairKey: pair.key,
+    pairLabel: pair.label,
+    componentId: sections.map((x) => x.componentId).join("+"),
+    componentShort: pair.key === "P1" ? "Paper 1" : "Paper 2",
+    optionId: sections.map((x) => x.optionId).join("+"),
+    optionLabel: sections.map((x) => x.optionLabel).filter(Boolean).join(" \u00b7 "),
+    site: cfg.site || "",
+    includeSubpages: true,
+    startedAt: Date.now(),
+    endsAt: null,
+    status: "generating",
+    answers: {},
+    sections: sections,
+    paper: null,
+    result: null,
+    timeUsedSeconds: 0
+  };
+
+  session = { attempt, view: "generating", error: null, timerId: null };
+  mountOverlay(true);
+  paint();
+
+  try {
+    const responses = await Promise.all(
+      sections.map((sec) => {
+        const notes = collectNotes(sec.pageId, true);
+        return postJson("/api/test/generate", {
+          componentId: sec.componentId,
+          optionId: sec.optionId,
+          site: cfg.site || "",
+          pageTitle: sec.pageTitle,
+          includedPages: notes.pages,
+          notes: notes.text
+        });
+      })
+    );
+    if (!session || session.attempt.id !== attempt.id) return; // closed while waiting
+    responses.forEach((res, i) => {
+      sections[i].paper = res.paper;
+    });
+    attempt.status = "in-progress";
+    attempt.startedAt = Date.now();
+    attempt.endsAt = attempt.startedAt + fullPaperMinutes(attempt) * 60000;
+    saveAttempt(attempt);
+    session.view = "exam";
+    startTimer();
+    paint();
+  } catch (e) {
+    if (!session) return;
+    session.view = "error";
+    session.error = e.message;
+    paint();
+  }
+}
+
+function fullPaperMinutes(attempt) {
+  return (attempt.sections || []).reduce(
+    (n, sec) => n + ((sec.paper && sec.paper.timeLimitMinutes) || sec.minutes || 0),
+    0
+  );
+}
+
+/*
+ * One paper object for rendering, built from the sections on the fly. It is
+ * never saved, so a full paper does not store its questions twice.
+ */
+function paperFor(attempt) {
+  if (!attempt.fullPaper) return attempt.paper;
+  const secs = (attempt.sections || []).filter((sec) => sec.paper);
+  const questions = [];
+  const groups = [];
+  secs.forEach((sec) => {
+    const qs = (sec.paper.questions || []).map((q) => {
+      const copy = Object.assign({}, q);
+      copy.baseNumber = q.number;
+      copy.number = sec.letter + q.number;
+      copy.sectionLetter = sec.letter;
+      return copy;
+    });
+    qs.forEach((q) => questions.push(q));
+    groups.push({
+      letter: sec.letter,
+      title: sec.paper.sectionTitle || sec.sectionTitle,
+      optionLabel: sec.paper.optionLabel || sec.optionLabel,
+      pageTitle: sec.pageTitle,
+      totalMarks: sec.paper.totalMarks || 0,
+      minutes: sec.paper.timeLimitMinutes || sec.minutes || 0,
+      sources: sec.paper.sources || [],
+      questions: qs
+    });
+  });
+  return {
+    paperTitle: attempt.pairLabel || "Full paper",
+    sectionTitle: (attempt.componentShort || "Full paper") + " \u00b7 both sections",
+    optionLabel: attempt.optionLabel || "",
+    totalMarks: groups.reduce((n, g) => n + g.totalMarks, 0),
+    timeLimitMinutes: groups.reduce((n, g) => n + g.minutes, 0),
+    sources: [],
+    questions: questions,
+    groups: groups
+  };
 }
 
 export function resumeAttempt(testId) {
@@ -504,17 +880,42 @@ async function submit(auto) {
   paint();
 
   try {
-    const res = await postJson("/api/test/mark", {
-      paper: attempt.paper,
-      answers: attempt.answers,
-      timeUsedSeconds: attempt.timeUsedSeconds
-    });
-    if (!session || session.attempt.id !== attempt.id) return;
-    attempt.result = res.result;
+    let result;
+    if (attempt.fullPaper) {
+      // Each section is marked against its own mark scheme, then the two are
+      // added up into one paper mark.
+      const marked = await Promise.all(
+        (attempt.sections || []).map((sec) => {
+          const answers = {};
+          (sec.paper.questions || []).forEach((q) => {
+            const v = attempt.answers[sec.letter + q.number];
+            if (v) answers[q.number] = v;
+          });
+          return postJson("/api/test/mark", {
+            paper: sec.paper,
+            answers: answers,
+            timeUsedSeconds: attempt.timeUsedSeconds
+          });
+        })
+      );
+      if (!session || session.attempt.id !== attempt.id) return;
+      result = mergeResults(attempt, marked.map((m) => m.result));
+    } else {
+      const res = await postJson("/api/test/mark", {
+        paper: attempt.paper,
+        answers: attempt.answers,
+        timeUsedSeconds: attempt.timeUsedSeconds
+      });
+      if (!session || session.attempt.id !== attempt.id) return;
+      result = res.result;
+    }
+    attempt.result = result;
     attempt.status = "marked";
     attempt.submittedAt = Date.now();
     saveAttempt(attempt);
     recordFromAttempt(attempt);
+    // A sat paper ticks off the mock scheduled for today, wherever it ran over.
+    completeTaskForPage(attempt.pageId, ["test", "final"]);
     runFlashcards(attempt);
     session.view = "results";
     exitFullscreen(); // feedback is read normally, not under exam conditions
@@ -527,6 +928,55 @@ async function submit(auto) {
     session.error = e.message;
     paint();
   }
+}
+
+/* Two section results, one paper. Question numbers keep their section letter
+   so nothing collides in the feedback. */
+function mergeResults(attempt, results) {
+  const secs = attempt.sections || [];
+  let mark = 0;
+  let outOf = 0;
+  const strengths = [];
+  const focusAreas = [];
+  const missedContent = [];
+  const notesGaps = [];
+  const questions = [];
+  const comments = [];
+
+  results.forEach((r, i) => {
+    if (!r) return;
+    const sec = secs[i] || { letter: SECTION_LETTERS[i] || String(i + 1) };
+    mark += r.totalMark || 0;
+    outOf += r.totalAvailable || 0;
+    if (r.overallComment) comments.push("Section " + sec.letter + ": " + r.overallComment);
+    (r.strengths || []).forEach((x) => strengths.push(x));
+    (r.focusAreas || []).forEach((f) =>
+      focusAreas.push({
+        area: "Section " + sec.letter + " \u00b7 " + (f.area || ""),
+        why: f.why || "",
+        action: f.action || ""
+      })
+    );
+    (r.missedContent || []).forEach((x) => missedContent.push(x));
+    (r.notesGaps || []).forEach((x) => notesGaps.push(x));
+    (r.questions || []).forEach((q) => {
+      const copy = Object.assign({}, q);
+      copy.number = sec.letter + q.number;
+      questions.push(copy);
+    });
+  });
+
+  return {
+    totalMark: mark,
+    totalAvailable: outOf,
+    percentage: outOf ? Math.round((mark / outOf) * 100) : 0,
+    overallComment: comments.join(" "),
+    strengths: strengths,
+    focusAreas: focusAreas,
+    missedContent: missedContent,
+    notesGaps: notesGaps,
+    questions: questions
+  };
 }
 
 /*
@@ -649,7 +1099,7 @@ function renderError(message, marking) {
 }
 
 function renderExam(attempt) {
-  const paper = attempt.paper;
+  const paper = paperFor(attempt);
   const left = remainingSeconds();
 
   let html = '<div class="exam-shell">';
@@ -671,47 +1121,25 @@ function renderExam(attempt) {
   html +=
     '<div class="exam-instructions">' +
     "<strong>" + escapeHtml(paper.paperTitle) + "</strong>" +
-    "<span>Answer all questions. Time allowed: " + paper.timeLimitMinutes + " minutes. " +
+    "<span>Answer all questions. Time allowed: " + paper.timeLimitMinutes + " minutes" +
+    (paper.groups ? " for the whole paper, with no break between sections" : "") + ". " +
     "The paper submits itself when the clock runs out.</span>" +
     "</div>";
 
-  if (paper.sources && paper.sources.length) {
-    html += '<div class="exam-sources">';
-    paper.sources.forEach((s) => {
+  if (paper.groups) {
+    paper.groups.forEach((g) => {
       html +=
-        '<div class="exam-source">' +
-        '<div class="exam-source-label">' + escapeHtml(s.label) + "</div>" +
-        '<div class="exam-source-prov">' + escapeHtml(s.provenance) + "</div>" +
-        '<div class="exam-source-body">' + escapeHtml(s.body) + "</div>" +
-        "</div>";
+        '<div class="exam-section-head">' +
+        "<h3>Section " + g.letter + " \u00b7 " + escapeHtml(g.title) + "</h3>" +
+        "<span>" + escapeHtml(g.optionLabel) + " \u00b7 " + g.totalMarks + " marks \u00b7 about " +
+        g.minutes + " minutes \u00b7 from " + escapeHtml(g.pageTitle) + "</span></div>";
+      html += sourcesHtml({ sources: g.sources });
+      html += questionsHtml(attempt, g.questions);
     });
-    html +=
-      '<div class="exam-source-note">' + ui("warning", 12) +
-      " Sources and interpretations here are written by AI in period style for practice \u2014 they are not genuine archive documents.</div>";
-    html += "</div>";
+  } else {
+    html += sourcesHtml(paper);
+    html += questionsHtml(attempt, paper.questions);
   }
-
-  paper.questions.forEach((q) => {
-    const total = q.marks + (q.spagMarks || 0);
-    html +=
-      '<div class="exam-question" id="exam-q-' + q.number + '">' +
-      '<div class="exam-q-head">' +
-      '<div class="exam-q-num">' + q.number + "</div>" +
-      '<div class="exam-q-marks">[' + total + " marks" + (q.spagMarks ? ", inc. " + q.spagMarks + " SPaG" : "") + "]</div>" +
-      "</div>" +
-      '<div class="exam-q-stem">' + escapeHtml(q.stem).replace(/\n/g, "<br>") + "</div>" +
-      (q.usesSources && q.usesSources.length
-        ? '<div class="exam-q-uses">Use ' + escapeHtml(q.usesSources.join(" and ")) + " above.</div>"
-        : "") +
-      '<textarea class="exam-answer" data-answer="' + q.number + '" rows="' + rowsFor(q) + '" ' +
-      'spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off" ' +
-      'data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" ' +
-      'placeholder="Write your answer here\u2026"></textarea>' +
-      '<div class="exam-q-foot">' +
-      '<span class="exam-q-time">Spend about ' + q.guidanceMinutes + " minutes</span>" +
-      '<span class="exam-q-words" data-words="' + q.number + '">' + wordCount(attempt.answers[q.number]) + " words</span>" +
-      "</div></div>";
-  });
 
   html +=
     '<div class="exam-end">' +
@@ -736,6 +1164,52 @@ function renderExam(attempt) {
   return html;
 }
 
+function sourcesHtml(paper) {
+  let html = "";
+  if (paper.sources && paper.sources.length) {
+    html += '<div class="exam-sources">';
+    paper.sources.forEach((s) => {
+      html +=
+        '<div class="exam-source">' +
+        '<div class="exam-source-label">' + escapeHtml(s.label) + "</div>" +
+        '<div class="exam-source-prov">' + escapeHtml(s.provenance) + "</div>" +
+        '<div class="exam-source-body">' + escapeHtml(s.body) + "</div>" +
+        "</div>";
+    });
+    html +=
+      '<div class="exam-source-note">' + ui("warning", 12) +
+      " Sources and interpretations here are written by AI in period style for practice \u2014 they are not genuine archive documents.</div>";
+    html += "</div>";
+  }
+  return html;
+}
+
+function questionsHtml(attempt, questions) {
+  let html = "";
+  questions.forEach((q) => {
+    const total = q.marks + (q.spagMarks || 0);
+    html +=
+      '<div class="exam-question" id="exam-q-' + q.number + '">' +
+      '<div class="exam-q-head">' +
+      '<div class="exam-q-num">' + q.number + "</div>" +
+      '<div class="exam-q-marks">[' + total + " marks" + (q.spagMarks ? ", inc. " + q.spagMarks + " SPaG" : "") + "]</div>" +
+      "</div>" +
+      '<div class="exam-q-stem">' + escapeHtml(q.stem).replace(/\n/g, "<br>") + "</div>" +
+      (q.usesSources && q.usesSources.length
+        ? '<div class="exam-q-uses">Use ' + escapeHtml(q.usesSources.join(" and ")) + " above.</div>"
+        : "") +
+      '<textarea class="exam-answer" data-answer="' + q.number + '" rows="' + rowsFor(q) + '" ' +
+      'spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off" ' +
+      'data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" ' +
+      'placeholder="Write your answer here\u2026"></textarea>' +
+      '<div class="exam-q-foot">' +
+      '<span class="exam-q-time">Spend about ' + q.guidanceMinutes + " minutes</span>" +
+      '<span class="exam-q-words" data-words="' + q.number + '">' + wordCount(attempt.answers[q.number]) + " words</span>" +
+      "</div></div>";
+  });
+  return html;
+}
+
 function rowsFor(q) {
   const total = q.marks + (q.spagMarks || 0);
   if (total >= 16) return 18;
@@ -748,7 +1222,7 @@ function rowsFor(q) {
 
 function renderResults(attempt) {
   const r = attempt.result;
-  const paper = attempt.paper;
+  const paper = paperFor(attempt);
   const pct = r.percentage;
 
   let html = '<div class="exam-shell exam-results">';

@@ -33,7 +33,7 @@ const COMMIT_TIMEOUT_MS = 12000;
 const READ_TIMEOUT_MS = 15000;
 
 /* Meta documents: small singletons kept out of the page documents. */
-const META_KEYS = ["workspace", "srs", "insights"];
+const META_KEYS = ["workspace", "srs", "insights", "plan"];
 
 let ctx = null; // { uid, fb, base, revs, unsubs, applying }
 let flushTimer = null;
@@ -345,6 +345,7 @@ function metaPayload(key) {
   }
   if (key === "srs") return { srs: s.srs || {}, reviewLog: s.reviewLog || {} };
   if (key === "insights") return { insights: s.insights || [] };
+  if (key === "plan") return { plan: s.plan || {} };
   return {};
 }
 
@@ -360,6 +361,8 @@ function applyMetaPayload(key, data) {
     if (data.reviewLog && typeof data.reviewLog === "object") s.reviewLog = data.reviewLog;
   } else if (key === "insights") {
     if (Array.isArray(data.insights)) s.insights = data.insights;
+  } else if (key === "plan") {
+    if (data.plan && typeof data.plan === "object") s.plan = data.plan;
   }
 }
 

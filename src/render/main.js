@@ -4,7 +4,8 @@ import { store, getPage } from "../state.js";
 import { escapeHtml, formatDateHuman, countdownInfo } from "../utils.js";
 import { renderBlocksList } from "./blocks.js";
 import { renderCalendarView } from "./calendar.js";
-import { renderTodayView } from "./today.js";
+import { renderPlanView } from "./plan.js";
+import { renderFlashcardsView } from "./flashcards.js";
 import { renderToc } from "./toc.js";
 import { iconImg, ui } from "../icons.js";
 import { cardsForPage, isDue } from "../srs.js";
@@ -15,9 +16,17 @@ import { renderFeedbackSection, renderAttemptsSection, renderQuizzesSection } fr
 export function renderMain() {
   const root = document.getElementById("main-inner");
 
-  if (store.currentView === "today") {
-    root.innerHTML = renderTodayView();
+  if (store.currentView === "plan") {
+    root.innerHTML = renderPlanView();
     document.getElementById("main").scrollTop = 0;
+    renderToc();
+    return;
+  }
+
+  // Flashcards runs inside the main column on a desktop, so the sidebar and
+  // the rest of the workspace stay exactly where they were.
+  if (store.currentView === "flashcards") {
+    root.innerHTML = renderFlashcardsView();
     renderToc();
     return;
   }

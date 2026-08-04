@@ -24,7 +24,22 @@ import {
   maybeShowToolbar,
   removeToolbar
 } from "../overlays.js";
-import { startRevise } from "../render/revise.js";
+import { startFlashcards, setFlashcardsNextTask } from "../render/flashcards.js";
+import { togglePlanSettings, togglePlanTimeline } from "../render/plan.js";
+import {
+  planSettings,
+  saveSetup,
+  minutesForMode,
+  regeneratePlan,
+  toggleTaskDone,
+  skipTask,
+  todayTasks,
+  isTaskDone,
+  isTaskSkipped,
+  pullForward,
+  undoPull,
+  ensurePlan
+} from "../plan/store.js";
 import { openTestSetup, resumeAttempt, openResults } from "../exam/session.js";
 import { openQuizSetup, resumeQuiz, openQuizResults } from "../quiz/session.js";
 import { resolveInsight } from "../exam/insights.js";
@@ -89,14 +104,8 @@ export function initMainEvents() {
       return;
     }
 
-    // Today dashboard rows: either start a revise session or open the page.
-    const planRow = e.target.closest("[data-plan-act]");
-    if (planRow) {
-      const targetId = planRow.dataset.pageId;
-      if (planRow.dataset.planAct === "revise") startRevise({ type: "page", pageId: targetId }, "everything");
-      else navigateTo(targetId);
-      return;
-    }
+    // Plan view: settings, task ticking, skipping, and starting work.
+    if (handlePlanClick(e)) return;
 
     const iconBtn = e.target.closest("#page-icon-btn");
     if (iconBtn) {
@@ -156,7 +165,7 @@ export function initMainEvents() {
 
     const reviseBtn = e.target.closest("#revise-page-btn");
     if (reviseBtn) {
-      startRevise({ type: "page", pageId: reviseBtn.dataset.pageId });
+      startFlashcards({ type: "page", pageId: reviseBtn.dataset.pageId });
       return;
     }
 
@@ -835,4 +844,161 @@ export function initMainEvents() {
     });
     dragState = null;
   });
+}
+
+/* ------------------------------------------------------------------ *
+ * Plan view
+ * ------------------------------------------------------------------ */
+
+/* Reads the minute boxes currently on screen for the chosen mode. */
+function readSetupCard(mode) {
+  const values = {};
+  document.querySelectorAll("[data-plan-min]").forEach((input) => {
+    values[input.dataset.planMin] = input.value;
+  });
+  const auto = document.getElementById("plan-auto-tests");
+  return {
+    mode: mode,
+    minutesByWeekday: minutesForMode(mode, values),
+    autoScheduleTests: auto ? !!auto.checked : true,
+    maxSubjectsPerDay: 3
+  };
+}
+
+/** Starts whatever a plan task actually is. */
+function runPlanTask(task) {
+  if (!task) return;
+  if (task.kind === "quiz") {
+    openQuizSetup(task.pageId);
+    return;
+  }
+  if (task.kind === "test") {
+    openTestSetup(task.pageId);
+    return;
+  }
+  if (task.kind === "read") {
+    navigateTo(task.pageId);
+    return;
+  }
+  // Flashcard work: due cards only for "due", the whole page otherwise.
+  const scope = { type: "page", pageId: task.pageId };
+  const mode = task.kind === "due" ? "due" : "everything";
+  startFlashcards(scope, mode, { id: task.id, date: task.date, minutes: task.minutes });
+}
+
+/** The next thing still outstanding today, used by "Next task". */
+function nextOutstandingTask() {
+  const p = ensurePlan();
+  const key = p.generatedFor || null;
+  const tasks = todayTasks();
+  const today = tasks.filter((t) => !isTaskDone(t.date, t.id) && !isTaskSkipped(t.date, t.id));
+  void key;
+  return today[0] || null;
+}
+
+setFlashcardsNextTask(() => {
+  const next = nextOutstandingTask();
+  if (next) runPlanTask(next);
+});
+
+function handlePlanClick(e) {
+  const modeBtn = e.target.closest("[data-plan-mode]");
+  if (modeBtn) {
+    // Switching mode keeps whatever minutes are already on screen.
+    const st = planSettings();
+    st.mode = modeBtn.dataset.planMode;
+    renderMain();
+    return true;
+  }
+
+  const tick = e.target.closest("[data-plan-tick]");
+  if (tick) {
+    toggleTaskDone(tick.dataset.date, tick.dataset.planTick, Number(tick.dataset.minutes) || 0);
+    renderMain();
+    return true;
+  }
+
+  const skip = e.target.closest("[data-plan-skip]");
+  if (skip) {
+    const id = skip.dataset.planSkip;
+    // Something pulled forward goes back where it came from instead.
+    if (!undoPull(id)) skipTask(skip.dataset.date, id);
+    renderMain();
+    return true;
+  }
+
+  const go = e.target.closest("[data-plan-task]");
+  if (go) {
+    runPlanTask({
+      id: go.dataset.planTask,
+      kind: go.dataset.kind,
+      pageId: go.dataset.pageId,
+      date: go.dataset.date,
+      minutes: Number(go.dataset.minutes) || 0
+    });
+    return true;
+  }
+
+  const open = e.target.closest("[data-plan-open]");
+  if (open) {
+    navigateTo(open.dataset.planOpen);
+    return true;
+  }
+
+  const day = e.target.closest("[data-plan-day]");
+  if (day) {
+    togglePlanTimeline();
+    renderMain();
+    return true;
+  }
+
+  const act = e.target.closest("[data-plan-act]");
+  if (!act) return false;
+  const which = act.dataset.planAct;
+
+  if (which === "save-setup") {
+    const st = planSettings();
+    saveSetup(readSetupCard(st.mode || "split"));
+    togglePlanSettings(false);
+    renderMain();
+    return true;
+  }
+  if (which === "settings") {
+    togglePlanSettings(true);
+    renderMain();
+    return true;
+  }
+  if (which === "settings-cancel") {
+    togglePlanSettings(false);
+    renderMain();
+    return true;
+  }
+  if (which === "replan") {
+    regeneratePlan(true);
+    renderMain();
+    return true;
+  }
+  if (which === "timeline") {
+    togglePlanTimeline();
+    renderMain();
+    return true;
+  }
+  if (which === "pull") {
+    pullForward();
+    renderMain();
+    return true;
+  }
+  if (which === "revise") {
+    startFlashcards({ type: "page", pageId: act.dataset.pageId }, "everything");
+    return true;
+  }
+  if (which === "quiz") {
+    openQuizSetup(act.dataset.pageId);
+    return true;
+  }
+  if (act.dataset.pageId) {
+    navigateTo(act.dataset.pageId);
+    return true;
+  }
+  return false;
 }
