@@ -85,24 +85,62 @@ export function buildQuizPrompt(cfg) {
   return { system, user };
 }
 
+/* Feedback that would be true of any student answering any question is worth
+ * nothing, so both the review pass and the markers are told to refuse it. */
+export const BANNED_FEEDBACK = [
+  "add more detail",
+  "more detail",
+  "more evidence",
+  "use more evidence",
+  "develop your points",
+  "develop your analysis",
+  "improve your structure",
+  "structure your answer",
+  "revise this topic",
+  "read your notes",
+  "learn the facts",
+  "be more specific",
+  "show more knowledge",
+  "practise more"
+];
+
+export const GROUNDING_RULES = [
+  "GROUNDING - THIS IS THE RULE THAT MATTERS MOST",
+  "Every point you make must be tied to something real. Each one must contain either",
+  "  (a) a quotation of at most twelve words taken from what the student actually wrote, or",
+  "  (b) an explicit statement of what they never mentioned, naming it.",
+  "and it must name the specific content at stake: a person, place, date, figure, term, cause or consequence.",
+  "",
+  "Before you return anything, test every point against this question:",
+  "  'Would this sentence be true of any student answering any question on this subject?'",
+  "If the answer is yes, the point is worthless. Rewrite it so that it could only have been written",
+  "about this answer, or drop it entirely. Returning two sharp points is far better than four vague ones.",
+  "",
+  "These phrases are banned unless they are followed by the specific content in question:",
+  "  " + BANNED_FEEDBACK.join("; ") + ".",
+  "Never pad, never repeat the score back, never praise for its own sake."
+].join("\n");
+
 /**
- * The optional "where I'm weak" pass after a quiz. Only the missed questions
- * are sent, never the notes again, so this call stays small and cheap.
+ * The optional "where I'm weak" pass after a quiz.
  *
  * cfg: { pageTitle, score, total, missed: [{ topic, question, correct, chose }] }
  */
 export function buildReviewPrompt(cfg) {
   const system = [
     "You are a tutor reading the questions a GCSE student has just got wrong in a multiple-choice quiz on their own notes.",
-    "Identify the underlying weaknesses, not the individual questions.",
+    "Name the underlying weaknesses, not the individual questions.",
+    "",
+    GROUNDING_RULES,
     "",
     "RULES",
-    "- Return between two and four focus areas, fewer if the student only made one kind of mistake.",
+    "- Return at most three focus areas. Two is usually right. One is correct when they made a single kind of mistake.",
     "- Group related mistakes into one focus area. Never return one focus area per question.",
-    "- 'area' is a short revision target of two to six words.",
-    "- 'why' is one sentence naming the pattern in what they got wrong.",
-    "- 'action' is one concrete instruction they can carry out today, in one sentence.",
-    "- Be direct and specific. No praise, no filler, no restating the score.",
+    "- 'area' is a short revision target of two to six words, naming real content, e.g. 'Causes of the 1929 crash'.",
+    "- 'why' is one sentence naming the pattern AND the specific facts they got wrong, e.g. 'You chose 1935 twice",
+    "  where the notes give 1933, so the order of the early Nazi laws is not yet secure.'",
+    "- 'action' is one instruction they can carry out today, naming exactly what to learn or do.",
+    "  'Learn the four Enabling Act clauses in order' is good. 'Revise Nazi Germany' is banned.",
     "",
     "Return JSON only, matching the schema exactly."
   ].join("\n");
@@ -133,46 +171,92 @@ export function buildReviewPrompt(cfg) {
   return { system, user };
 }
 
+/* Card fronts shaped like the question that caused them, rather than like a
+ * fact worth knowing. Checked on the server as well as asked for here. */
+export const BANNED_CARD_PATTERNS = [
+  "differences between",
+  "difference between",
+  "primary difference",
+  "key difference",
+  "compare and contrast",
+  "in what ways",
+  "to what extent",
+  "this question",
+  "the above",
+  "according to the notes",
+  "according to the text",
+  "option a",
+  "option b",
+  "which of the following"
+];
+
+export const MAX_CARDS_PER_RUN = 20;
+export const MAX_CARD_NOTE_CHARS = 9000;
+
 /**
- * Flashcards written from what the student actually got wrong.
+ * Flashcards written from what the student got wrong, but grounded in their
+ * own notes rather than in the wording of the question.
  *
  * cfg: {
  *   source: "quiz" | "test",
  *   pageTitle, subjectTitle,
- *   score, total,
- *   misses: [{ topic, question, correct, chose, explanation, detail }]
+ *   misses: [{ topic, question, correct, chose, explanation, detail }],
+ *   notes: the relevant passages of their notes,
+ *   existing: [fronts of cards they already have]
  * }
- *
- * The model is asked to cover the underlying gap, not to parrot the question
- * back, so a run of related mistakes can become one strong card.
  */
 export function buildFlashcardPrompt(cfg) {
   const fromExam = cfg.source === "test";
+  const hasNotes = !!(cfg.notes && cfg.notes.trim());
 
   const system = [
-    "You are a tutor writing revision flashcards for a GCSE student, based only on the mistakes they have just made",
-    fromExam ? "in a marked exam paper." : "in a multiple-choice quiz on their own notes.",
+    "You are a tutor writing revision flashcards for a GCSE student.",
+    "You are given the mistakes they have just made",
+    fromExam ? "in a marked exam paper" : "in a multiple-choice quiz on their own notes",
+    "and the passages of their revision notes that those mistakes touch.",
     "",
-    "PURPOSE",
-    "- Each card must close a real gap in knowledge or skill that the mistakes reveal.",
-    "- Cards are for repeated recall practice, so they must be answerable from memory.",
+    "WORK IN TWO STEPS",
+    "1. For each mistake, work out the piece of knowledge that was actually missing.",
+    "   Ignore how the question was phrased. The question is only evidence of a gap; it is not the gap.",
+    "2. Write cards about that knowledge, taking the wording and the substance from the NOTES.",
     "",
-    "RULES",
-    "- Write between 3 and 12 cards. Fewer cards is better than padding.",
-    "- Merge related mistakes into one card. Never write one card per mistake mechanically.",
-    "- 'front' is a single question or prompt, 8 to 20 words, that forces recall. Never a yes/no question.",
-    "- 'front' must make sense on its own. Never write 'this question', 'the above' or 'option B'.",
-    "- 'back' is the answer in 1 to 3 short sentences, or up to 4 brief bullet-style clauses separated by '; '.",
-    "- 'back' must be specific and factual: names, dates, figures, causes, consequences, key terms.",
-    "- 'topic' is 2 to 5 words naming the gap the card closes.",
-    "- 'kind' is \"knowledge\" when the gap is a fact or concept, or \"skill\" when the gap is exam technique",
-    "  such as using evidence, explaining significance, comparing, or structuring an answer.",
-    "- Include at least one \"skill\" card when the mistakes show a technique problem rather than missing facts.",
-    "- Never mention the quiz, the paper, the marks, or that they got something wrong.",
-    "- Plain text only. No markdown, no numbering, no quotation marks around the whole field.",
+    "GROUNDING",
+    hasNotes
+      ? "- Every answer must be verifiable against the notes supplied below. If a fact is not in the notes, do not write a card about it."
+      : "- No notes were supplied, so write only cards whose answers are contained in the mistake information itself.",
+    hasNotes
+      ? "- 'evidence' must be a quotation of at most fifteen words, copied exactly from the notes, that proves the answer. Never invent it."
+      : "- 'evidence' may be left as an empty string when no notes were supplied.",
+    "- Never test something the student was not expected to know from these notes.",
+    "",
+    "SHAPE OF THE CARDS - THIS IS WHERE MOST ATTEMPTS GO WRONG",
+    "- One fact per card. Do not bundle several ideas into one card to save space.",
+    "- A single gap should usually become TWO to FOUR cards, not one. For a gap about why a colony was founded, write",
+    "  a card for the count ('What were the three reasons the Jamestown colony was founded?'), a card for each reason",
+    "  that carries detail of its own, and where the notes support it a card on the consequence or significance.",
+    "- Where the notes enumerate something, the card must enumerate it too, and must state how many there are.",
+    "- Fronts must be short, concrete and answerable from memory: five to sixteen words.",
+    "- Fronts must never be shaped like the question that exposed the gap, and must never be comparative",
+    "  unless the notes themselves set out an explicit comparison.",
+    "- These phrasings are banned in a front: " + BANNED_CARD_PATTERNS.join("; ") + ".",
+    "- 'back' is the answer only: names, dates, figures, causes, consequences, key terms. One to three short",
+    "  sentences, or up to four brief clauses separated by '; '. No preamble, no 'the notes say'.",
+    "- 'topic' is two to five words naming the content, reused across runs, so keep the labels consistent.",
+    "- 'kind' is \"knowledge\" for a fact or concept, or \"skill\" for exam technique such as using evidence,",
+    "  explaining significance, or structuring an answer. Write a skill card only when the mistakes really show",
+    "  a technique problem, and never more than two.",
+    "",
+    "HOW MANY",
+    "- Write up to " + MAX_CARDS_PER_RUN + " cards. Cover every distinct gap; do not pad a thin gap out.",
+    "- Do not write a card that duplicates one they already have, listed below. Cover a different angle instead.",
+    "",
+    "Never mention the quiz, the paper, the marks, or that they got anything wrong.",
+    "Plain text only. No markdown, no numbering.",
     "",
     "Return JSON only, matching the schema exactly."
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const lines = (cfg.misses || []).map((m, i) => {
     const parts = [i + 1 + ". [" + (m.topic || "General") + "]"];
@@ -184,14 +268,24 @@ export function buildFlashcardPrompt(cfg) {
     return parts.join("\n   ");
   });
 
+  const existing = (cfg.existing || []).filter(Boolean).slice(0, 60);
+
   const user = [
     "Subject: " + (cfg.subjectTitle || "Unknown"),
     "Topic page: " + (cfg.pageTitle || "Untitled"),
-    "Score: " + (cfg.score || 0) + " out of " + (cfg.total || (cfg.misses || []).length) + ".",
     "",
     fromExam ? "Points and skills the examiner marked them down on:" : "What they got wrong:",
-    lines.join("\n")
-  ].join("\n");
+    lines.join("\n"),
+    "",
+    existing.length ? "Cards they already have (do not repeat these):" : "",
+    existing.length ? existing.map((f) => "- " + f).join("\n") : "",
+    "",
+    hasNotes ? "--- THEIR NOTES ON THIS MATERIAL START ---" : "",
+    hasNotes ? cfg.notes : "",
+    hasNotes ? "--- THEIR NOTES END ---" : ""
+  ]
+    .filter((l) => l !== "")
+    .join("\n");
 
   return { system, user };
 }

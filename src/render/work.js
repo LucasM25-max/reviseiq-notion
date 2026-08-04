@@ -9,15 +9,7 @@
  */
 import { escapeHtml, formatDateHuman } from "../utils.js";
 import { ui } from "../icons.js";
-import { attemptsForPage, allAttempts } from "../exam/insights.js";
-import { quizzesForPage, allQuizAttempts } from "../quiz/store.js";
-import { practisesForPage, allPractiseAttempts } from "../practise/store.js";
-
-const KIND_META = {
-  quiz: { label: "Quiz", icon: "quiz" },
-  practise: { label: "Practise", icon: "marksheet" },
-  test: { label: "Mock paper", icon: "exam" }
-};
+import { attemptRows, KIND_META } from "../evidence.js";
 
 /* Collapsed by default. Kept in module state so a re-render mid-session does
    not slam the list shut under the user. */
@@ -40,89 +32,15 @@ function pct(n) {
   return Math.round(n) + "%";
 }
 
-/** Everything sat on a page (or everywhere), normalised into one row shape. */
-function rowsFor(pageId) {
-  const rows = [];
-
-  (pageId ? quizzesForPage(pageId) : allQuizAttempts()).forEach((q) => {
-    if (q.status !== "marked" && q.status !== "in-progress") return;
-    const open = q.status === "in-progress";
-    const total = q.quiz && q.quiz.questions ? q.quiz.questions.length : 0;
-    const answered = Object.keys(q.answers || {}).length;
-    rows.push({
-      kind: "quiz",
-      id: q.id,
-      open: open,
-      title: q.title || "Quiz",
-      pageTitle: q.pageTitle || "",
-      at: q.startedAt,
-      score: open ? null : q.result.score + " / " + q.result.total,
-      percentage: open ? null : q.result.percentage,
-      detail: open ? answered + " of " + total + " answered" : "",
-      attrs: ' data-quiz-act="' + (open ? "resume" : "results") + '" data-quiz-id="' + q.id + '"'
-    });
-  });
-
-  (pageId ? practisesForPage(pageId) : allPractiseAttempts()).forEach((p) => {
-    if (p.status !== "marked" && p.status !== "in-progress") return;
-    const open = p.status !== "marked";
-    const answers = p.answers || { knowledge: {}, exam: {} };
-    const answered =
-      Object.keys(answers.knowledge || {}).filter((k) => String(answers.knowledge[k] || "").trim()).length +
-      Object.keys(answers.exam || {}).filter((k) => String(answers.exam[k] || "").trim()).length;
-    const total = p.practise
-      ? (p.practise.knowledge.questions || []).length +
-        (p.practise.exam ? (p.practise.exam.questions || []).length : 0)
-      : 0;
-    rows.push({
-      kind: "practise",
-      id: p.id,
-      open: open,
-      title: p.title || "Practise",
-      pageTitle: p.pageTitle || "",
-      at: p.startedAt,
-      score: open ? null : p.result.totalMark + " / " + p.result.totalAvailable,
-      percentage: open ? null : p.result.percentage,
-      detail: open
-        ? answered + " of " + total + " answered"
-        : p.practise && p.practise.exam
-          ? "written + exam questions"
-          : "written questions",
-      attrs: ' data-practise-open="' + (open ? "resume" : "results") + '" data-practise-id="' + p.id + '"'
-    });
-  });
-
-  (pageId ? attemptsForPage(pageId) : allAttempts()).forEach((a) => {
-    if (a.status !== "marked" && a.status !== "in-progress") return;
-    const open = a.status === "in-progress";
-    rows.push({
-      kind: "test",
-      id: a.id,
-      open: open,
-      title: a.optionLabel || "Mock paper",
-      pageTitle: a.pageTitle || "",
-      at: a.startedAt,
-      score: open ? null : a.result.totalMark + " / " + a.result.totalAvailable,
-      percentage:
-        open || !a.result.totalAvailable
-          ? null
-          : Math.round((a.result.totalMark / a.result.totalAvailable) * 100),
-      detail: a.componentShort || "",
-      attrs: ' data-test-act="' + (open ? "resume" : "results") + '" data-test-id="' + a.id + '"'
-    });
-  });
-
-  // Anything unfinished first: it is the only row that is actionable.
-  rows.sort((x, y) => (y.open ? 1 : 0) - (x.open ? 1 : 0) || (y.at || 0) - (x.at || 0));
-  return rows;
-}
-
 function rowHtml(row, showPage) {
   const meta = KIND_META[row.kind];
   const bits = [];
   if (row.percentage !== null && row.percentage !== undefined) bits.push(pct(row.percentage));
   if (row.detail) bits.push(row.detail);
   bits.push(relative(row.at));
+  // Closes the loop: an attempt says what it left behind on the page.
+  const cards = (row.cardsMade || 0) + (row.cardsResurfaced || 0);
+  if (cards) bits.push(cards + (cards === 1 ? " card" : " cards"));
   if (showPage && row.pageTitle) bits.push(row.pageTitle);
 
   return (
@@ -147,7 +65,7 @@ function rowHtml(row, showPage) {
 export function renderWorkSection(pageId, options) {
   const opts = options || {};
   const key = pageId || "all";
-  const rows = rowsFor(pageId);
+  const rows = attemptRows(pageId);
   if (!rows.length) return "";
 
   const marked = rows.filter((r) => !r.open && r.percentage !== null && r.percentage !== undefined);

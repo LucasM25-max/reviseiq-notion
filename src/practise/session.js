@@ -736,16 +736,18 @@ async function runFlashcards() {
     pageTitle: a.pageTitle,
     subjectTitle: a.subjectTitle,
     source: "test",
-    score: a.result.totalMark,
-    total: a.result.totalAvailable,
+    includeSubpages: !!a.includeSubpages,
+    attemptId: a.id,
     misses
   });
 
   if (!session || session.attempt.id !== a.id) return;
   a.cardsMade = (a.cardsMade || 0) + out.made;
+  a.cardsResurfaced = out.resurfaced || 0;
   a.result.cardsAiWritten = out.aiUsed;
-  a.result.cardState = out.made ? "done" : "error";
-  a.result.cardError = out.made ? null : out.error || "Couldn\u2019t write flashcards from this one.";
+  a.result.cardState = out.made || out.resurfaced ? "done" : "error";
+  a.result.cardError =
+    out.made || out.resurfaced ? null : out.error || "Couldn\u2019t write flashcards from this one.";
   savePractiseAttempt(a);
   scheduleSave();
   paint();
@@ -1047,8 +1049,13 @@ function renderResults() {
   } else if (r.cardState === "done") {
     html +=
       '<div class="pr-cards-made">' + ui("flashcard", 14) +
-      a.cardsMade + " flashcard" + (a.cardsMade === 1 ? "" : "s") +
-      " added to this page from what you missed.</div>";
+      [
+        a.cardsMade ? a.cardsMade + " new flashcard" + (a.cardsMade === 1 ? "" : "s") : "",
+        a.cardsResurfaced ? a.cardsResurfaced + " you already had brought back" : ""
+      ]
+        .filter(Boolean)
+        .join(", ") +
+      ", due today.</div>";
   } else if (r.cardState === "error") {
     html +=
       '<div class="pr-cards-made is-error">' + ui("warning", 14) + escapeHtml(r.cardError || "") +

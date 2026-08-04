@@ -84,7 +84,7 @@ export default async function handler(req, res) {
     return send(res, e.status || 502, { error: "Couldn't summarise your weak spots: " + e.message });
   }
 
-  const focusAreas = (out.focusAreas || []).slice(0, 4).map((f) => ({
+  const focusAreas = (out.focusAreas || []).slice(0, 3).map((f) => ({
     area: String(f.area || "").trim().slice(0, 80),
     why: String(f.why || "").trim().slice(0, 300),
     action: String(f.action || "").trim().slice(0, 300)

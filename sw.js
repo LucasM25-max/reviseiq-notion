@@ -7,7 +7,7 @@
  *   - same-origin assets: stale-while-revalidate (instant load, quiet update)
  * Bump CACHE_VERSION whenever the shell changes so old caches are dropped.
  */
-const CACHE_VERSION = "reviseiq-v16";
+const CACHE_VERSION = "reviseiq-v17";
 const SHELL = [
   "/",
   "/index.html",
@@ -51,6 +51,7 @@ const SHELL = [
   "/src/pages.js",
   "/src/overlays.js",
   "/src/srs.js",
+  "/src/evidence.js",
   "/src/backup.js",
   "/src/pwa.js",
   "/src/render/main.js",

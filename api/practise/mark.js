@@ -16,6 +16,12 @@ import { requireUser } from "../_lib/auth.js";
 
 const MAX_ANSWER_CHARS = 12000;
 
+/* Sent so notesGaps is judged against the student's own notes, not guessed. */
+const MAX_NOTE_CHARS = 14000;
+
+const MAX_STRENGTHS = 2;
+const MAX_FOCUS_AREAS = 3;
+
 const KNOWLEDGE_RESULT_SCHEMA = {
   type: "OBJECT",
   properties: {
@@ -150,9 +156,12 @@ export default async function handler(req, res) {
   }
   const kAnswers = trimAnswers(knowledge.answers);
 
+  const notes = String(body.notes || "").slice(0, MAX_NOTE_CHARS);
+
   const kPrompt = buildKnowledgeMarkingPrompt({
     pageTitle: String(body.pageTitle || ""),
     subjectTitle: String(body.subjectTitle || ""),
+    notes,
     questions: kQuestions,
     answers: kAnswers,
     timeUsedSeconds: Number(body.timeUsedSeconds) || 0
@@ -182,6 +191,7 @@ export default async function handler(req, res) {
           questions: exam.questions
         };
         const prompt = buildMarkingPrompt({
+          notes,
           componentId: component.id,
           optionId: option.id,
           paper,
@@ -330,8 +340,8 @@ export default async function handler(req, res) {
       strengths: (kMarked.strengths || [])
         .map(String)
         .concat(examResult ? examResult.strengths : [])
-        .slice(0, 6),
-      focusAreas: focusAreas.slice(0, 6),
+        .slice(0, MAX_STRENGTHS),
+      focusAreas: focusAreas.slice(0, MAX_FOCUS_AREAS),
       missedContent: (kMarked.missedContent || [])
         .map(String)
         .concat(examResult ? examResult.missedContent : []),

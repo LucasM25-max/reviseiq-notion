@@ -5,6 +5,7 @@
 // in state.srs, keyed by block id, so notes and scheduling stay in one save.
 import { store, getPage, getAllDescendantIds, getAncestors } from "./state.js";
 import { pad2, daysUntil } from "./utils.js";
+import { hasEvidence } from "./evidence.js";
 
 /* Interval ladder in days. Index -1 means "new / relearning". */
 export const STEPS = [1, 3, 7, 16, 35];
@@ -56,6 +57,23 @@ export function gradeCard(cardId, grade) {
   rec.last = todayKey();
   srs[cardId] = rec;
   logReview();
+  return rec;
+}
+
+/**
+ * Bring an existing card back to the front of the queue.
+ *
+ * When a mistake maps onto a card the student already has, making a near
+ * duplicate of it helps nobody: the right response is for the card they own to
+ * come back sooner. Called when card generation finds a duplicate front.
+ */
+export function resurfaceCard(cardId) {
+  const srs = ensureSrs();
+  const rec = srs[cardId] || { step: -1, due: null, reps: 0, lapses: 0, last: null };
+  rec.step = -1;
+  rec.due = todayKey();
+  rec.resurfacedAt = Date.now();
+  srs[cardId] = rec;
   return rec;
 }
 
@@ -295,19 +313,7 @@ export function shakyPages(limit) {
  * This catches the real failure mode: never having made cards for a topic.
  */
 export function pageHasBeenTested(pageId) {
-  const quizzes = store.state.quizzes || {};
-  for (const k in quizzes) {
-    if (quizzes[k] && quizzes[k].pageId === pageId && quizzes[k].result) return true;
-  }
-  const tests = store.state.tests || {};
-  for (const k in tests) {
-    if (tests[k] && tests[k].pageId === pageId && tests[k].result) return true;
-  }
-  const practises = store.state.practises || {};
-  for (const k in practises) {
-    if (practises[k] && practises[k].pageId === pageId && practises[k].result) return true;
-  }
-  return false;
+  return hasEvidence(pageId);
 }
 
 export function pageWrittenOn(page) {

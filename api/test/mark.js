@@ -10,6 +10,15 @@ import { requireUser } from "../_lib/auth.js";
 
 const MAX_ANSWER_CHARS = 12000;
 
+/* The student's own notes are sent so notesGaps can be judged against what
+ * they actually wrote down, rather than guessed at from the syllabus. */
+const MAX_NOTE_CHARS = 18000;
+
+/* Feedback is capped here as well as in the prompt: a model that pads anyway
+ * must not be able to fill the results screen with filler. */
+const MAX_STRENGTHS = 2;
+const MAX_FOCUS_AREAS = 3;
+
 const RESULT_SCHEMA = {
   type: "OBJECT",
   properties: {
@@ -27,7 +36,8 @@ const RESULT_SCHEMA = {
           missedPoints: { type: "ARRAY", items: { type: "STRING" } },
           spagMark: { type: "INTEGER" },
           spagOutOf: { type: "INTEGER" },
-          spagComment: { type: "STRING" }
+          spagComment: { type: "STRING" },
+          nextBand: { type: "STRING" }
         },
         required: ["number", "mark", "outOf", "level", "examinerComment", "didWell", "missedPoints"]
       }
@@ -111,6 +121,7 @@ export default async function handler(req, res) {
     optionId: option.id,
     paper,
     answers,
+    notes: String(body.notes || "").slice(0, MAX_NOTE_CHARS),
     timeUsedSeconds: Number(body.timeUsedSeconds) || 0
   });
 
@@ -154,7 +165,8 @@ export default async function handler(req, res) {
       missedPoints: (m.missedPoints || []).map(String),
       spagMark,
       spagOutOf,
-      spagComment: spagOutOf ? String(m.spagComment || "") : ""
+      spagComment: spagOutOf ? String(m.spagComment || "") : "",
+      nextBand: answered ? String(m.nextBand || "") : ""
     };
   });
 
@@ -164,12 +176,14 @@ export default async function handler(req, res) {
       totalAvailable,
       percentage: totalAvailable ? Math.round((totalMark / totalAvailable) * 100) : 0,
       questions,
-      strengths: (marked.strengths || []).map(String),
-      focusAreas: (marked.focusAreas || []).map((f) => ({
-        area: String(f.area || ""),
-        why: String(f.why || ""),
-        action: String(f.action || "")
-      })),
+      strengths: (marked.strengths || []).map(String).slice(0, MAX_STRENGTHS),
+      focusAreas: (marked.focusAreas || [])
+        .map((f) => ({
+          area: String(f.area || ""),
+          why: String(f.why || ""),
+          action: String(f.action || "")
+        }))
+        .slice(0, MAX_FOCUS_AREAS),
       missedContent: (marked.missedContent || []).map(String),
       notesGaps: (marked.notesGaps || []).map(String),
       overallComment: String(marked.overallComment || ""),

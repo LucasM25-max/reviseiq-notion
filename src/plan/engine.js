@@ -16,7 +16,7 @@
  */
 import { store, getPage } from "../state.js";
 import { MIN_PRACTISE_WORDS, DEFAULT_TARGET_MINUTES } from "../practise/prompt.js";
-import { PRACTISE_EVIDENCE_WEIGHT } from "../practise/store.js";
+import { evidenceForPage as ledgerEvidence } from "../evidence.js";
 import { daysUntil, pad2 } from "../utils.js";
 import {
   cardsForPage,
@@ -94,42 +94,10 @@ function countOwnCards(blocks, out) {
   });
 }
 
-function attemptPercent(attempt) {
-  if (!attempt || !attempt.result) return null;
-  const r = attempt.result;
-  if (typeof r.percentage === "number") return Math.max(0, Math.min(100, r.percentage)) / 100;
-  if (typeof r.score === "number" && r.total) return Math.max(0, Math.min(1, r.score / r.total));
-  if (typeof r.correct === "number" && r.total) return Math.max(0, Math.min(1, r.correct / r.total));
-  return null;
-}
-
-/* Most recent quiz/paper score on a page, and when it happened. */
+/* Readiness, coverage and the results strip must never disagree about what has
+ * been sat, so all three read the same ledger. See src/evidence.js. */
 function evidenceForPage(pageId) {
-  let pct = null;
-  let when = 0;
-  let count = 0;
-  // How strongly the strongest piece of evidence counts. A quiz or a mock is
-  // worth 1; a practise is written, marked work but short, so it is worth less.
-  let weight = 0;
-  const scan = (map, w) => {
-    for (const k in map) {
-      const a = map[k];
-      if (!a || a.pageId !== pageId || !a.result) continue;
-      count += 1;
-      if (w > weight) weight = w;
-      const at = a.finishedAt || a.startedAt || 0;
-      const p = attemptPercent(a);
-      if (p === null) continue;
-      if (at >= when) {
-        when = at;
-        pct = p;
-      }
-    }
-  };
-  scan(store.state.quizzes || {}, 1);
-  scan(store.state.tests || {}, 1);
-  scan(store.state.practises || {}, PRACTISE_EVIDENCE_WEIGHT);
-  return { pct: pct, lastAt: when, attempts: count, weight: weight };
+  return ledgerEvidence(pageId);
 }
 
 function unresolvedInsightCount(pageId) {

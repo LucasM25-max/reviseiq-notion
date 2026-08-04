@@ -14,6 +14,7 @@
  * This module is pure data and string building with no DOM access, so the
  * Vercel API routes import it too and the prompt lives in exactly one place.
  */
+import { GROUNDING_RULES } from "../quiz/quizPrompt.js";
 
 export const HISTORY_BOARD = "AQA";
 export const HISTORY_TITLE_MATCH = /\bhistory\b/i;
@@ -458,6 +459,8 @@ export function buildMarkingPrompt(opts) {
   const component = COMPONENTS[opts.componentId];
   const option = OPTION_MAP[opts.optionId];
 
+  const notes = String(opts.notes || "").slice(0, 18000);
+
   const system =
     "You are an AQA GCSE History (8145) examiner marking a student's script against the mark scheme " +
     "supplied. The paper is " + component.paper + ", " + component.section + " (" + option.label + ").\n\n" +
@@ -473,20 +476,33 @@ export function buildMarkingPrompt(opts) {
     "student before a real exam.\n" +
     "- Where SPaG marks apply, mark them separately against this scheme:\n  " +
     SPAG_SCHEME.join("\n  ") + "\n\n" +
+    GROUNDING_RULES + "\n\n" +
     "FOR EACH QUESTION RETURN\n" +
     "- the mark awarded and the level;\n" +
-    "- one sentence in examiner register justifying the level;\n" +
-    "- what the student did well (specific, not generic praise);\n" +
+    "- one sentence in examiner register justifying the level, quoting at most twelve words of what they " +
+    "actually wrote as the evidence for it;\n" +
+    "- what the student did well, quoting the words that earned the credit. If nothing merits it, return " +
+    "nothing rather than inventing praise;\n" +
     "- the specific creditworthy points they missed, each stated as the actual historical point " +
     "(for example \u2018the role of the Dawes Plan in stabilising the currency\u2019), never as vague advice " +
-    "like \u2018add more detail\u2019.\n\n" +
+    "like \u2018add more detail\u2019;\n" +
+    "- nextBand: the single change that would have moved this answer up one level, named precisely, " +
+    "for example \u2018tie the second paragraph back to the question by explaining why rearmament mattered " +
+    "more than propaganda\u2019. One sentence. Omit it only when the answer is already at the top level.\n\n" +
     "THEN RETURN AN OVERALL VERDICT\n" +
     "- total mark and total available;\n" +
-    "- 2\u20134 strengths, each naming the skill and the question that evidenced it;\n" +
-    "- 2\u20134 focus areas, each naming the skill, why it cost marks, and one concrete action for next time;\n" +
+    "- at most 2 strengths, each naming the skill and the question that evidenced it. Return none rather " +
+    "than padding;\n" +
+    "- at most 3 focus areas, two is usually right. Each names the skill, the specific content or wording " +
+    "that cost the marks, and one concrete action for next time;\n" +
     "- missedContent: the specific historical points absent across the whole script, so the student knows " +
     "exactly what to revise;\n" +
-    "- notesGaps: points the mark scheme expected which the student's own notes do not appear to contain.\n\n" +
+    (notes
+      ? "- notesGaps: points the mark scheme expected which are genuinely absent from the student's own " +
+        "notes, which are supplied below. Quote the line of their notes that comes closest, or say that " +
+        "the notes do not touch it at all. Never guess: if the notes cover it and the student simply did " +
+        "not use it, that belongs in focus areas instead.\n\n"
+      : "- notesGaps: points the mark scheme expected which the student's own notes do not appear to contain.\n\n") +
     "Do not award or mention a grade: grade boundaries move every year and a fabricated grade would " +
     "mislead. Report marks only. British English. Return only the JSON object.";
 
@@ -505,7 +521,11 @@ export function buildMarkingPrompt(opts) {
     JSON.stringify(opts.paper) + "\n\n" +
     "STUDENT'S SCRIPT\n" +
     answers.join("\n\n---\n\n") + "\n\n" +
-    "TIME USED: " + formatDuration(opts.timeUsedSeconds) + " of " + component.timeLimitMinutes + " minutes.";
+    "TIME USED: " + formatDuration(opts.timeUsedSeconds) + " of " + component.timeLimitMinutes + " minutes." +
+    (notes
+      ? "\n\nTHE STUDENT'S OWN REVISION NOTES ON THIS TOPIC (use these only to judge notesGaps)\n" +
+        "--- NOTES START ---\n" + notes + "\n--- NOTES END ---"
+      : "");
 
   return { system, user };
 }

@@ -638,8 +638,8 @@ async function runFlashcards() {
     pageTitle: a.pageTitle,
     subjectTitle: a.subjectTitle,
     source: "quiz",
-    score: a.result.score,
-    total: a.result.total,
+    includeSubpages: !!a.includeSubpages,
+    attemptId: a.id,
     misses: a.result.wrong.map((w) => ({
       topic: w.topic,
       question: w.question,
@@ -651,9 +651,10 @@ async function runFlashcards() {
 
   if (!session || session.attempt.id !== a.id) return;
   a.cardsMade = (a.cardsMade || 0) + out.made;
+  a.cardsResurfaced = out.resurfaced || 0;
   a.result.cardsAiWritten = out.aiUsed;
-  a.result.cardState = out.made ? "done" : "error";
-  a.result.cardError = out.made
+  a.result.cardState = out.made || out.resurfaced ? "done" : "error";
+  a.result.cardError = out.made || out.resurfaced
     ? null
     : out.error || "Couldn\u2019t write flashcards from this one.";
   saveQuizAttempt(a);
@@ -871,13 +872,17 @@ function renderResults(attempt) {
       html +=
         '<div class="quiz-cards-made is-error">' + ui("warning", 13) + " " +
         escapeHtml(r.cardError || "Couldn\u2019t write flashcards from this one.") + "</div>";
-    } else if (attempt.cardsMade) {
+    } else if (attempt.cardsMade || attempt.cardsResurfaced) {
+      const bits = [];
+      if (attempt.cardsMade) {
+        bits.push(attempt.cardsMade + " new flashcard" + (attempt.cardsMade === 1 ? "" : "s"));
+      }
+      if (attempt.cardsResurfaced) {
+        bits.push(attempt.cardsResurfaced + " you already had brought back");
+      }
       html +=
-        '<div class="quiz-cards-made">' + ui("check", 13) + " " + attempt.cardsMade +
-        " flashcard" + (attempt.cardsMade === 1 ? "" : "s") +
-        (r.cardsAiWritten ? " written by Gemini" : " built") +
-        " from what you got wrong, under \u201cFlashcards from your mistakes\u201d on this page." +
-        " They are in your revision schedule from today.</div>";
+        '<div class="quiz-cards-made">' + ui("check", 13) + " " + bits.join(", ") +
+        ", due today.</div>";
     }
   } else {
     html +=

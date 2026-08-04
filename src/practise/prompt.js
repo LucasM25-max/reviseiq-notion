@@ -14,6 +14,7 @@
  * browser imports it for lengths and labels and the Vercel routes import it for
  * the prompts. The rules therefore live in exactly one place.
  */
+import { GROUNDING_RULES } from "../quiz/quizPrompt.js";
 
 /* Below this, a page has too little on it to write a fair practise from. */
 export const MIN_PRACTISE_WORDS = 80;
@@ -209,8 +210,12 @@ export function buildKnowledgePrompt(cfg) {
  *        answers: { "1": "..." }, timeUsedSeconds }
  */
 export function buildKnowledgeMarkingPrompt(cfg) {
+  const notes = String(cfg.notes || "").slice(0, 14000);
+
   const system = [
     "You are marking a GCSE student's written answers against the mark scheme supplied with each question.",
+    "",
+    GROUNDING_RULES,
     "",
     "HOW TO MARK",
     "- Award one mark for each rubric point the answer genuinely makes. Wording need not match; the point must be there.",
@@ -222,16 +227,26 @@ export function buildKnowledgeMarkingPrompt(cfg) {
     "",
     "FOR EACH QUESTION RETURN",
     "- mark and outOf.",
-    "- comment: one sentence in a teacher's register saying why it scored what it scored.",
-    "- didWell: the specific points they did make.",
+    "- comment: one sentence saying why it scored what it scored, quoting at most twelve words of what they",
+    "  actually wrote as the evidence, or naming what they never mentioned.",
+    "- didWell: the specific points they did make, in their own words where possible. Return nothing rather",
+    "  than inventing praise.",
     "- missedPoints: the specific points they missed, each stated as the actual point of knowledge",
     "  (for example 'the role of the Dawes Plan in stabilising the currency'), never as vague advice like 'add more detail'.",
     "",
     "THEN RETURN AN OVERALL VERDICT",
-    "- 2 to 4 strengths, each naming what the student can evidently do.",
-    "- 2 to 4 focus areas, each naming the weakness, why it cost marks, and one concrete action for today.",
+    "- at most 2 strengths, each naming what the student can evidently do and the answer that showed it.",
+    "- at most 3 focus areas, two is usually right. Each names the weakness, the specific content or wording",
+    "  that cost the marks, and one concrete action for today. Never return a focus area that would apply to",
+    "  any student; drop it instead.",
     "- missedContent: the specific points of knowledge absent across the whole script.",
-    "- overallComment: two or three sentences, direct and specific, no praise padding.",
+    notes
+      ? "- notesGaps: points the mark scheme expected which are genuinely absent from the student's own notes,\n" +
+        "  supplied below. Quote the closest line of their notes, or say the notes do not touch it. If the notes\n" +
+        "  do cover it and they simply did not use it, that belongs in focus areas instead."
+      : "- notesGaps: points the mark scheme expected which their notes do not appear to contain.",
+    "- overallComment: two or three sentences, direct and specific, no praise padding. It must name real",
+    "  content, not describe the performance in general terms.",
     "",
     "Do not award or mention a grade. British English. Return only the JSON object."
   ].join("\n");
@@ -258,8 +273,12 @@ export function buildKnowledgeMarkingPrompt(cfg) {
     "Subject: " + (cfg.subjectTitle || "Unknown"),
     "Topic page: " + (cfg.pageTitle || "Untitled"),
     "",
-    blocks.join("\n\n---\n\n")
-  ].join("\n");
+    blocks.join("\n\n---\n\n"),
+    notes ? "\nTHE STUDENT'S OWN REVISION NOTES (use these only to judge notesGaps)" : "",
+    notes ? "--- NOTES START ---\n" + notes + "\n--- NOTES END ---" : ""
+  ]
+    .filter((l) => l !== "")
+    .join("\n");
 
   return { system, user };
 }

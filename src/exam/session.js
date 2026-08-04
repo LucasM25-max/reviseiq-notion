@@ -1016,12 +1016,13 @@ async function runFlashcards(attempt) {
     pageTitle: attempt.pageTitle,
     subjectTitle: attempt.subjectTitle,
     source: "test",
-    score: r.totalMark,
-    total: r.totalAvailable,
+    includeSubpages: !!attempt.includeSubpages,
+    attemptId: attempt.id,
     misses: usable.slice(0, 24)
   });
 
   attempt.cardsMade = (attempt.cardsMade || 0) + out.made;
+  attempt.cardsResurfaced = out.resurfaced || 0;
   attempt.cardsAiWritten = out.aiUsed;
   saveAttempt(attempt);
   if (session && session.attempt.id === attempt.id && session.view === "results") paint();
@@ -1296,11 +1297,17 @@ function renderResults(attempt) {
         : "") +
       ((q.didWell || []).length
         ? '<div class="result-q-list good"><span class="rl-label">Did well</span><ul>' +
-          q.didWell.map((d) => "<li>" + escapeHtml(d) + "</li>").join("") + "</ul></div>"
+          q.didWell.slice(0, 2).map((d) => "<li>" + escapeHtml(d) + "</li>").join("") + "</ul></div>"
         : "") +
       ((q.missedPoints || []).length
         ? '<div class="result-q-list miss"><span class="rl-label">Missed</span><ul>' +
-          q.missedPoints.map((d) => "<li>" + escapeHtml(d) + "</li>").join("") + "</ul></div>"
+          q.missedPoints.slice(0, 3).map((d) => "<li>" + escapeHtml(d) + "</li>").join("") + "</ul></div>"
+        : "") +
+      /* The one change that would move this answer up a level. It sits inside
+         the question it belongs to rather than in a panel of its own. */
+      (q.nextBand
+        ? '<div class="result-q-next"><span class="rl-label">To go up a level</span>' +
+          escapeHtml(q.nextBand) + "</div>"
         : "") +
       '<details class="result-q-answer"><summary>Your answer (' + wordCount(answer) + " words)</summary><pre>" +
       escapeHtml(answer || "[No answer written]") + "</pre>" +
