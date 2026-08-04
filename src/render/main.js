@@ -12,8 +12,8 @@ import { cardsForPage, isDue } from "../srs.js";
 import { testEligibility } from "../exam/session.js";
 import { quizEligibility } from "../quiz/session.js";
 import { practiseEligibility } from "../practise/session.js";
-import { renderPractisesSection } from "./practise.js";
-import { renderFeedbackSection, renderAttemptsSection, renderQuizzesSection } from "./insights.js";
+import { renderWorkSection } from "./work.js";
+import { renderFeedbackSection } from "./insights.js";
 
 export function renderMain() {
   const root = document.getElementById("main-inner");
@@ -51,14 +51,12 @@ export function renderMain() {
   html += renderPageHeader(page);
   if (page.type === "subject") html += renderExamPanel(page);
   html += renderPageActions(page);
-  html += renderQuizzesSection(page.id);
-  html += renderPractisesSection(page.id);
   html += '<div class="block-list" id="block-list" data-page-id="' + page.id + '">' + renderBlocksList(page.blocks) + "</div>";
   // Invisible click target: clicking the space under the last block starts a
   // new paragraph, without adding another visible "add a block" row.
   html += '<div class="page-tail" id="page-tail"></div>';
-  // Mock exam history and any outstanding examiner feedback for this page.
-  html += renderAttemptsSection(page.id);
+  // Everything already sat on this page, plus any feedback still outstanding.
+  html += renderWorkSection(page.id, { title: "Marked work on this page" });
   html += renderFeedbackSection({ pageId: page.id, title: "Exam feedback for this page", limit: 8 });
   root.innerHTML = html;
   root.scrollTop = 0;

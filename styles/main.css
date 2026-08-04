@@ -122,3 +122,184 @@ input.board-other{
   background:var(--warn-soft);border:1px solid var(--warn);color:#7A5A22;
   padding:8px 16px;border-radius:999px;font-size:12.5px;box-shadow:var(--shadow-m);
 }
+
+/* ---------- marked work strip (quizzes, practises, mock papers) ---------- */
+
+.wk-section {
+  margin: 34px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--card-bg);
+  overflow: hidden;
+}
+
+.wk-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  background: var(--bg-soft);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+}
+
+.wk-head:hover {
+  background: var(--accent-softer);
+}
+
+.wk-head-title {
+  font-family: var(--font-serif);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.wk-head-sum {
+  flex: 1;
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+
+.wk-chev {
+  display: inline-flex;
+  color: var(--text-faint);
+  transition: transform 0.15s ease;
+}
+
+.wk-chev.is-open {
+  transform: rotate(180deg);
+}
+
+.wk-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.wk-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: var(--card-bg);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+}
+
+.wk-row:hover {
+  background: var(--bg-soft);
+}
+
+.wk-kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 27px;
+  height: 27px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.wk-kind.wk-test {
+  background: var(--warn-soft);
+  color: #7a5a20;
+}
+
+.wk-kind.wk-quiz {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.wk-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.wk-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wk-meta {
+  color: var(--text-faint);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wk-score {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--text-soft);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wk-score.is-open {
+  background: var(--warn-soft);
+  color: #7a5a20;
+}
+
+.wk-go {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-faint);
+}
+
+.wk-row:hover .wk-go {
+  color: var(--accent);
+}
+
+.wk-more {
+  display: block;
+  width: 100%;
+  padding: 9px 14px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.wk-more:hover {
+  background: var(--bg-soft);
+}
+
+.wk-note {
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+@media (max-width: 860px) {
+  .wk-head,
+  .wk-row {
+    padding: 10px 12px;
+  }
+
+  .wk-head-sum {
+    display: none;
+  }
+}

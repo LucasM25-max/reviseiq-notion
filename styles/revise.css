@@ -83,7 +83,7 @@
 .revise-secondary:hover{border-color:var(--accent-2);color:var(--accent);}
 
 /* ---------- Revise entry points ---------- */
-.page-actions{display:flex;align-items:center;gap:8px;margin:14px 0 2px 0;}
+.page-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0 2px 0;}
 .btn-revise{
   display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;
   border:1px solid var(--accent-2);background:var(--accent-2);color:#fff;font-size:13px;font-weight:600;

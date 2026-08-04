@@ -9,6 +9,8 @@ export const ICON_BASE = "/icons/";
 export const ICON_KEYS = [
   "book", "notebook", "note", "page", "scroll", "quill", "pencil",
   "calculator", "dna", "flask", "atom", "microscope", "column", "globe",
+  "map", "compass", "timeline", "coins", "people", "heart", "gear", "film",
+  "microphone",
   "chat", "palette", "music", "laptop", "briefcase", "mask", "ruler",
   "brain", "ball", "trophy", "graduation", "leaf", "rocket",
   "clock", "calendar", "checklist", "target", "flag", "pin", "key",
@@ -42,7 +44,12 @@ const LEGACY_EMOJI = {
   "\ud83d\udccc": "pin", "\ud83d\uddc2": "note", "\ud83c\udf93": "graduation",
   "\ud83d\udcc4": "page", "\ud83d\udde3": "chat", "\ud83d\udcc5": "calendar",
   "\u26a0": "warning", "\u2757": "warning", "\ud83d\udd11": "key",
-  "\ud83c\udf31": "leaf", "\ud83d\ude80": "rocket", "\ud83c\udff3": "flag"
+  "\ud83c\udf31": "leaf", "\ud83d\ude80": "rocket", "\ud83c\udff3": "flag",
+  "\ud83d\uddfa": "map", "\ud83e\udded": "compass", "\ud83d\udcb0": "coins",
+  "\ud83d\udcb5": "coins", "\ud83d\udc65": "people", "\ud83d\udc64": "people",
+  "\u2764": "heart", "\ud83e\udde1": "heart", "\u2699": "gear",
+  "\ud83c\udfac": "film", "\ud83c\udfa5": "film", "\ud83c\udfa4": "microphone",
+  "\u23f1": "stopwatch", "\ud83d\udcc8": "chart", "\ud83d\udcca": "chart"
 };
 
 /** Accepts a new key, a legacy emoji, or junk, and always returns a valid key. */
@@ -116,7 +123,6 @@ const UI_PATHS = {
   medal: '<circle cx="12" cy="15.2" r="5.2"/><path d="m9.5 10.6-3-7.4h4.1L12 8.1"/><path d="m14.5 10.6 3-7.4h-4.1L12 8.1"/>',
   cards: '<rect x="3" y="7.8" width="13" height="9.8" rx="2" transform="rotate(-7 9.5 12.7)"/><rect x="7.2" y="6.4" width="13.6" height="10.2" rx="2"/><path d="M10.4 10h7.2M10.4 12.8h4.8"/>',
   exam: '<path d="M6.4 3.4h7.4L18 7.1v13.5H6.4z"/><path d="M13.6 3.4v3.7h4.3"/><path d="m9 12.4 1.4 1.4 2.7-2.9"/><path d="M9 17h6.4"/>',
-  question: '<circle cx="12" cy="12" r="8.4"/><path d="M9.7 9.7a2.4 2.4 0 0 1 4.7.6c0 1.6-2.3 1.9-2.3 3.4"/><path d="M12 17h.01"/>',
   chart: '<path d="M4.2 20h15.6"/><path d="M7.4 20v-6.2M12 20V8.6M16.6 20V4.9"/>',
   cloud: '<path d="M7.3 18.5h9.5a3.7 3.7 0 0 0 .5-7.37 5.3 5.3 0 0 0-10.2-1.2A3.9 3.9 0 0 0 7.3 18.5Z"/>',
   cloudCheck: '<path d="M7.3 17.6h9.5a3.7 3.7 0 0 0 .5-7.37 5.3 5.3 0 0 0-10.2-1.2A3.9 3.9 0 0 0 7.3 17.6Z"/><polyline points="9.6 13.2 11.2 14.8 14.6 11.2"/>',
@@ -129,6 +135,12 @@ const UI_PATHS = {
   page: '<path d="M6.5 3.8h6L18 9v11.2H6.5z"/><path d="M12.5 3.8V9H18"/>',
   drag: '<circle cx="9" cy="5.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="15" cy="5.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="9" cy="18.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="15" cy="18.5" r="1.5" fill="currentColor" stroke="none"/>',
   dots: '<circle cx="5.5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
+  marksheet: '<rect x="5.4" y="3.4" width="13.2" height="17.2" rx="2.2"/><polyline points="8.4 8.6 9.8 10 12.4 7.2"/><path d="M14.4 9h2.2M8.4 13.4h8.2M8.4 16.8h5.2"/>',
+  question: '<circle cx="12" cy="12" r="8.4"/><path d="M9.7 9.7a2.4 2.4 0 0 1 4.7.6c0 1.6-2.3 1.9-2.3 3.4"/><path d="M12 17h.01"/>',
+  clock: '<circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.2 2"/>',
+  notebook: '<path d="M7 3.6h11.4v16.8H7z"/><path d="M7 3.6H5.6v16.8H7"/><path d="M10 8.4h5.4M10 12h5.4M10 15.6h3.4"/>',
+  pencil: '<path d="M4.6 19.4l1-3.6L15.2 6.2a1.8 1.8 0 0 1 2.6 0l.6.6a1.8 1.8 0 0 1 0 2.6L8.8 19l-4.2.4z"/><path d="M14.2 7.6 17 10.4"/>',
+  sparkle: '<path d="M12 3.6l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.6L5.8 9.8l4.6-1.6z"/><path d="M18 16.4l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
   heading1: '<path d="M4 6v12M12 6v12M4 12h8M16 18V8l-2.4 1.6"/>',
   heading2: '<path d="M4 6v12M11 6v12M4 12h7M15 9.5a2.5 2.5 0 0 1 5 0c0 2.5-5 3.5-5 8.5h5"/>',
   heading3: '<path d="M4 6v12M11 6v12M4 12h7M15 8.5h5l-3 3.5a2.8 2.8 0 1 1-2.2 4.6"/>'
@@ -150,17 +162,25 @@ const SUBJECT_ICON_MAP = [
   [/science/i, "microscope"],
   [/english|literature/i, "quill"],
   [/histor/i, "column"],
-  [/geog/i, "globe"],
+  [/geog/i, "map"],
+  [/travel|tourism|explor/i, "compass"],
   [/french|spanish|german|italian|mandarin|latin|language/i, "chat"],
   [/art\b|photograph/i, "palette"],
   [/music/i, "music"],
   [/comput|\bict\b|\bit\b|coding/i, "laptop"],
   [/\bpe\b|physical education|sport/i, "ball"],
   [/religio|\brs\b|philosoph|ethic/i, "scroll"],
-  [/business|econom/i, "briefcase"],
+  [/econom|finance|account/i, "coins"],
+  [/business|enterprise/i, "briefcase"],
+  [/media|film/i, "film"],
+  [/health|\bpshe\b|biology of sport/i, "heart"],
+  [/politic|govern|citizenship/i, "column"],
   [/drama|theatre|theater/i, "mask"],
   [/design|\bdt\b|engineer|graphic/i, "ruler"],
-  [/psycholog|sociolog/i, "brain"],
+  [/psycholog/i, "brain"],
+  [/sociolog|anthropolog/i, "people"],
+  [/\bdt\b|product design|resistant material|\bengineer/i, "gear"],
+  [/oral|speaking|podcast/i, "microphone"],
   [/food|cook|nutrition/i, "leaf"]
 ];
 

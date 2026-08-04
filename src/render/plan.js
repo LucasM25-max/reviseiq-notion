@@ -38,7 +38,8 @@ import {
   digestDismissed,
   health
 } from "../plan/store.js";
-import { renderFeedbackSection, renderAttemptsSection, renderQuizzesSection } from "./insights.js";
+import { renderFeedbackSection } from "./insights.js";
+import { renderWorkSection } from "./work.js";
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 const KIND_LABEL = {
@@ -732,8 +733,7 @@ function renderProgressSection() {
   html += renderShaky();
   html += renderGaps();
   html += renderFeedbackSection({ title: "Exam feedback to act on", limit: 6 });
-  html += renderQuizzesSection(null);
-  html += renderAttemptsSection(null);
+  html += renderWorkSection(null, { title: "Marked work" });
   html += "</div>";
   return html;
 }

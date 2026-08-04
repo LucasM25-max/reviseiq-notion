@@ -53,6 +53,7 @@ import {
 import { openTestSetup, resumeAttempt, openResults } from "../exam/session.js";
 import { openQuizSetup, resumeQuiz, openQuizResults } from "../quiz/session.js";
 import { openPractiseSetup, resumePractise, openPractiseResults } from "../practise/session.js";
+import { toggleWorkList } from "../render/work.js";
 import { resolveInsight } from "../exam/insights.js";
 import {
   navigateTo,
@@ -190,6 +191,13 @@ export function initMainEvents() {
     if (quizAct) {
       if (quizAct.dataset.quizAct === "resume") resumeQuiz(quizAct.dataset.quizId);
       else openQuizResults(quizAct.dataset.quizId);
+      return;
+    }
+
+    const workToggle = e.target.closest("[data-work-toggle]");
+    if (workToggle) {
+      toggleWorkList(workToggle.dataset.workToggle);
+      renderMain();
       return;
     }
 
