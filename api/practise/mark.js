@@ -161,6 +161,9 @@ export default async function handler(req, res) {
   const kPrompt = buildKnowledgeMarkingPrompt({
     pageTitle: String(body.pageTitle || ""),
     subjectTitle: String(body.subjectTitle || ""),
+    // Rapid recall answers are one sentence by design; the marker must not
+    // dock a mark for the brevity the question asked for.
+    style: knowledge.style === "recall" ? "recall" : "written",
     notes,
     questions: kQuestions,
     answers: kAnswers,

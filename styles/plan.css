@@ -124,15 +124,35 @@
 .pl-ready-title{font-size:14.5px;font-weight:600;color:var(--text);background:none;border:0;padding:0;text-align:left;}
 .pl-ready-title:hover{color:var(--accent);}
 .pl-ready-when{font-size:11.5px;color:var(--text-faint);margin-left:auto;}
-.pl-ready-pct{font-size:13px;font-weight:700;color:var(--text-soft);font-variant-numeric:tabular-nums;}
 .pl-ready-bar{height:6px;border-radius:999px;background:var(--bg-soft);overflow:hidden;margin-top:9px;}
 .pl-ready-fill{height:100%;background:var(--accent-2);border-radius:999px;}
 .pl-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
 .pl-chip{
   font-size:11.5px;color:var(--text-soft);background:var(--bg-soft);border:1px solid var(--border);
-  border-radius:999px;padding:3px 9px;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  border-radius:999px;padding:3px 9px;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  display:inline-flex;align-items:baseline;gap:6px;
 }
 .pl-chip:hover{border-color:var(--accent-2);color:var(--accent);}
+.pl-chip.is-quiet{color:var(--text-faint);background:none;border-style:dashed;}
+.pl-chip.is-quiet:hover{border-color:var(--border);color:var(--text-faint);}
+.pl-chip-why{font-size:10.5px;color:var(--text-faint);flex-shrink:0;}
+.pl-chip:hover .pl-chip-why{color:var(--accent-2);}
+
+/* Where you stand: one card a subject, and nothing said twice. */
+.pl-grade{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.pl-grade-badge{
+  font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-softer);
+  border:1px solid var(--accent-soft);border-radius:999px;padding:2px 9px;flex-shrink:0;
+}
+.pl-grade-note{font-size:11.5px;color:var(--text-faint);flex:1;min-width:150px;}
+.pl-trend{font-size:11.5px;font-weight:700;flex-shrink:0;font-variant-numeric:tabular-nums;}
+.pl-trend.is-up{color:var(--success);}
+.pl-trend.is-down{color:var(--danger);}
+.pl-ready-foot{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  margin-top:7px;font-size:11.5px;color:var(--text-faint);
+}
+.pl-ready-foot span:first-child{font-weight:600;color:var(--text-soft);font-variant-numeric:tabular-nums;}
 
 /* timeline */
 .pl-timeline{display:flex;flex-direction:column;gap:10px;}

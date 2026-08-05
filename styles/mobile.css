@@ -298,16 +298,6 @@
     color: var(--text-faint);
   }
 
-  /* ---- today dashboard ---- */
-  .today-strip {
-    gap: 8px;
-  }
-  .plan-row,
-  .shaky-row,
-  .gap-row {
-    padding: 13px 12px;
-  }
-
   .full-banner {
     bottom: calc(12px + env(safe-area-inset-bottom));
     max-width: 92vw;

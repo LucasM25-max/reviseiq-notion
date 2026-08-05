@@ -15,11 +15,10 @@ import {
   reviewedToday,
   weeklyCounts,
   allCards,
-  shakyPages,
-  coverageGaps,
   todayKey
 } from "../srs.js";
-import { topicUnits, readiness } from "../plan/engine.js";
+import { topicUnits } from "../plan/engine.js";
+import { subjectStanding, standingSummary } from "../readiness.js";
 import {
   ensurePlan,
   isSetupDone,
@@ -177,29 +176,38 @@ function renderOneLine() {
 function digestPoints() {
   const points = [];
   const h = health();
-  const units = topicUnits();
+  const standing = subjectStanding();
 
   if (h.behind) {
     points.push(
       "about " + h.droppedMinutes + " minutes of work will not fit before your exams at your current time per day"
     );
   }
-  const weakest = units
-    .map((u) => ({ title: u.title, r: readiness(u), examDays: u.examDays }))
-    .filter((u) => u.r < 0.5)
-    .sort((a, b) => a.r - b.r)[0];
-  if (weakest) {
+  // The digest and the standing card read the same aggregate, so the two can
+  // never tell the student different stories about the same subject.
+  const moved = standing
+    .filter((x) => x.trend && x.trend.dir !== "flat")
+    .sort((a, b) => Math.abs(b.trend.delta) - Math.abs(a.trend.delta))[0];
+  if (moved) {
     points.push(
-      escapeHtml(weakest.title) +
-        " is your weakest topic at " +
-        Math.round(weakest.r * 100) +
-        "% readiness" +
-        (weakest.examDays !== null ? ", exam in " + weakest.examDays + " days" : "")
+      escapeHtml(moved.title) +
+        " is " +
+        (moved.trend.dir === "up" ? "up " : "down ") +
+        Math.abs(moved.trend.delta) +
+        " percentage points on your recent marked work"
     );
   }
-  const gaps = coverageGaps(30, 20).length;
-  if (gaps) {
-    points.push(gaps + " topic" + (gaps === 1 ? " has" : "s have") + " never been quizzed, papered or carded");
+  const weakest = [];
+  standing.forEach((x) => x.weak.forEach((w) => weakest.push(w)));
+  weakest.sort((a, b) => a.r - b.r);
+  if (weakest[0]) {
+    points.push(
+      escapeHtml(weakest[0].title) + " is your weakest topic \u2014 " + weakest[0].reason
+    );
+  }
+  const untested = standing.reduce((n, x) => n + x.topics - x.examined, 0);
+  if (untested) {
+    points.push(untested + " topic" + (untested === 1 ? " has" : "s have") + " never been quizzed, papered or carded");
   }
   const pace = paceSummary()[0];
   if (pace && Math.abs(pace.factor - 1) > 0.15) {
@@ -731,155 +739,111 @@ function renderTimeline() {
 /* ---------- everything analytical, folded away ---------- */
 
 function renderProgressSection() {
-  const units = topicUnits();
-  let avg = 0;
-  units.forEach((u) => (avg += readiness(u)));
-  avg = units.length ? Math.round((avg / units.length) * 100) : 0;
-  const gaps = coverageGaps(30, 20).length;
-  const shaky = shakyPages(20).length;
-  const summary = [];
-  if (units.length) summary.push(avg + "% average readiness");
-  if (shaky) summary.push(shaky + " shaky topic" + (shaky === 1 ? "" : "s"));
-  if (gaps) summary.push(gaps + " never tested");
-
+  const standing = subjectStanding();
   let html =
     '<button class="pl-section-toggle' +
     (progressOpen ? " is-open" : "") +
     '" data-plan-act="progress">' +
     (progressOpen ? ui("chevron", 13) : ui("chevronRight", 13)) +
-    "<span>Progress and evidence</span>" +
+    "<span>Where you stand</span>" +
     '<span class="pl-section-note">' +
-    escapeHtml(summary.join(" \u00b7 ") || "nothing recorded yet") +
+    escapeHtml(standingSummary(standing) || "nothing recorded yet") +
     "</span></button>";
   if (!progressOpen) return html;
 
   html += '<div class="pl-progress-panel">';
-  html += renderReadiness();
-  html += renderShaky();
-  html += renderGaps();
+  html += renderStanding(standing);
   html += renderFeedbackSection({ title: "Exam feedback to act on", limit: 6 });
   html += renderWorkSection(null, { title: "Marked work" });
   html += "</div>";
   return html;
 }
 
-function renderReadiness() {
-  const units = topicUnits();
-  if (!units.length) return "";
-  const groups = {};
-  units.forEach((u) => {
-    const g =
-      groups[u.subjectId] ||
-      (groups[u.subjectId] = {
-        id: u.subjectId,
-        title: u.subjectTitle || u.title,
-        examDays: u.examDays,
-        sum: 0,
-        n: 0,
-        weak: []
-      });
-    const r = readiness(u);
-    g.sum += r;
-    g.n += 1;
-    if (r < 0.4) g.weak.push({ title: u.title, pageId: u.pageId, r: r });
-  });
-  const rows = Object.keys(groups)
-    .map((k) => groups[k])
-    .sort((a, b) => {
-      const ea = a.examDays === null ? Infinity : a.examDays;
-      const eb = b.examDays === null ? Infinity : b.examDays;
-      return ea - eb;
-    });
+/*
+ * One card per subject, and only one.
+ *
+ * Readiness, the grade estimate, the direction of travel, where the marks are
+ * going and which topics are the problem all used to be four separate lists
+ * saying overlapping things. They are one card now: a student should be able to
+ * answer "how am I doing in History" without reading four of anything.
+ */
+const CONFIDENCE_LABEL = { low: "low confidence", medium: "fair confidence", high: "good confidence" };
 
-  let html = '<div class="today-section-label">Readiness<span class="label-note">tested, remembered, recent</span></div>';
-  html += '<div class="pl-ready-list">';
-  rows.forEach((g) => {
-    const pct = Math.round((g.sum / g.n) * 100);
-    g.weak.sort((a, b) => a.r - b.r);
+function examWhen(days) {
+  if (days === null || days === undefined) return "no exam date";
+  if (days <= 0) return "exam today";
+  if (days === 1) return "exam tomorrow";
+  if (days < 21) return "exam in " + days + " days";
+  const weeks = Math.round(days / 7);
+  return "exam in " + weeks + " weeks";
+}
+
+function standingChip(w) {
+  const label = escapeHtml(w.title) + '<span class="pl-chip-why">' + escapeHtml(w.reason) + "</span>";
+  if (w.action === "open") return '<button class="pl-chip" data-plan-open="' + w.pageId + '">' + label + "</button>";
+  return '<button class="pl-chip" data-plan-act="' + w.action + '" data-page-id="' + w.pageId + '">' + label + "</button>";
+}
+
+function renderStanding(rows) {
+  const list = rows || subjectStanding();
+  if (!list.length) return "";
+
+  let html = '<div class="pl-ready-list">';
+  list.forEach((s) => {
     html +=
-      '<div class="pl-ready"><div class="pl-ready-top"><button class="pl-ready-title" data-plan-open="' +
-      g.id +
+      '<div class="pl-ready"><div class="pl-ready-top">' +
+      '<button class="pl-ready-title" data-plan-open="' +
+      s.id +
       '">' +
-      escapeHtml(g.title) +
-      '</button><div class="pl-ready-when">' +
-      (g.examDays === null
-        ? "no exam date"
-        : g.examDays === 0
-          ? "exam today"
-          : "exam in " + g.examDays + " day" + (g.examDays === 1 ? "" : "s")) +
-      '</div><div class="pl-ready-pct">' +
-      pct +
-      '%</div></div><div class="pl-ready-bar"><div class="pl-ready-fill" style="width:' +
-      pct +
-      '%"></div></div>' +
-      (g.weak.length
-        ? '<div class="pl-chips">' +
-          g.weak
-            .slice(0, 4)
-            .map((w) => '<button class="pl-chip" data-plan-open="' + w.pageId + '">' + escapeHtml(w.title) + "</button>")
-            .join("") +
-          "</div>"
-        : "") +
+      escapeHtml(s.title) +
+      "</button>" +
+      '<div class="pl-ready-when">' +
+      escapeHtml(examWhen(s.examDays)) +
+      "</div></div>";
+
+    html += '<div class="pl-grade">';
+    if (s.grade) {
+      html += '<span class="pl-grade-badge">Grade ' + escapeHtml(s.grade) + "</span>";
+      html +=
+        '<span class="pl-grade-note">' +
+        escapeHtml(CONFIDENCE_LABEL[s.confidence] || "") +
+        " \u00b7 " +
+        escapeHtml(s.confidenceNote) +
+        "</span>";
+    } else {
+      html += '<span class="pl-grade-note">Nothing marked yet \u2014 one quiz and an estimate appears here.</span>';
+    }
+    if (s.trend && s.trend.dir !== "flat") {
+      html +=
+        '<span class="pl-trend ' +
+        (s.trend.dir === "up" ? "is-up" : "is-down") +
+        '">' +
+        (s.trend.dir === "up" ? "\u2191" : "\u2193") +
+        " " +
+        Math.abs(s.trend.delta) +
+        " pts</span>";
+    }
+    html += "</div>";
+
+    html +=
+      '<div class="pl-ready-bar"><div class="pl-ready-fill" style="width:' +
+      s.readinessPct +
+      '%"></div></div>';
+    html +=
+      '<div class="pl-ready-foot"><span>' +
+      s.readinessPct +
+      "% ready</span>" +
+      (s.loss ? "<span>" + escapeHtml(s.loss.text) + "</span>" : "") +
       "</div>";
-  });
-  html += "</div>";
-  return html;
-}
 
-function renderShaky() {
-  const rows = shakyPages(5);
-  if (rows.length === 0) return "";
-  let html =
-    '<div class="today-section-label">Shaky topics<span class="label-note">where you slip most often</span></div>';
-  html += '<div class="shaky-list">';
-  rows.forEach((r) => {
-    const pct = Math.round(r.rate * 100);
-    html +=
-      '<button class="shaky-row" data-plan-act="revise" data-page-id="' +
-      r.pageId +
-      '"><div class="plan-icon">' +
-      iconImg(r.icon, 18) +
-      '</div><div class="plan-info"><div class="plan-title">' +
-      escapeHtml(r.title) +
-      '</div><div class="plan-detail">' +
-      (r.subjectTitle ? escapeHtml(r.subjectTitle) + " \u00b7 " : "") +
-      r.cards +
-      " card" +
-      (r.cards === 1 ? "" : "s") +
-      '</div></div><div class="shaky-meter"><div class="shaky-fill" style="width:' +
-      Math.min(100, pct) +
-      '%"></div></div><div class="shaky-pct">' +
-      pct +
-      "%</div></button>";
-  });
-  html += "</div>";
-  return html;
-}
-
-function renderGaps() {
-  const rows = coverageGaps(30, 5);
-  if (rows.length === 0) return "";
-  let html =
-    '<div class="today-section-label">Never tested<span class="label-note">no quiz, no paper, no cards</span></div>';
-  html += '<div class="gap-list">';
-  rows.forEach((r) => {
-    html +=
-      '<button class="gap-row" data-plan-act="quiz" data-page-id="' +
-      r.pageId +
-      '"><div class="plan-icon">' +
-      iconImg(r.icon, 18) +
-      '</div><div class="plan-info"><div class="plan-title">' +
-      escapeHtml(r.title) +
-      '</div><div class="plan-detail">' +
-      (r.subjectTitle ? escapeHtml(r.subjectTitle) + " \u00b7 " : "") +
-      "exam in " +
-      r.examDays +
-      " day" +
-      (r.examDays === 1 ? "" : "s") +
-      " \u00b7 quiz it and the flashcards write themselves" +
-      '</div></div><div class="plan-go">' +
-      ui("arrowRight", 15) +
-      "</div></button>";
+    if (s.weak.length) {
+      html +=
+        '<div class="pl-chips">' +
+        s.weak.slice(0, 4).map(standingChip).join("") +
+        (s.weak.length > 4 ? '<span class="pl-chip is-quiet">+' + (s.weak.length - 4) + " more</span>" : "") +
+        "</div>";
+    }
+    html += "</div>";
   });
   html += "</div>";
   return html;

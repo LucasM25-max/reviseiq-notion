@@ -189,7 +189,7 @@ function renderSetup(el, existing, target) {
     '<div class="practise-setup-head">' +
     '<div class="practise-setup-badge">' + ui("marksheet", 15) + "Written practice</div>" +
     "<h3>Practise</h3>" +
-    "<p>A short written test: hard knowledge questions you answer in your own words, marked against a mark scheme.</p>" +
+    "<p>A short written test, marked against a mark scheme. Every answer is typed in your own words \u2014 nothing is multiple choice.</p>" +
     "</div>";
 
   if (existing) {
@@ -240,12 +240,21 @@ function renderShape(target, exam) {
   const shape = shapeOf(target, exam);
   let html = '<div class="practise-shape">';
 
+  const recall = shape.knowledge.style === "recall";
   html +=
     '<div class="practise-stage-row">' +
     '<div class="practise-stage-num">1</div>' +
-    "<div><strong>" + shape.knowledge.count + " knowledge questions</strong>" +
+    "<div><strong>" +
+    shape.knowledge.count +
+    (recall ? " recall questions" : " knowledge questions") +
+    "</strong>" +
     '<span class="practise-stage-meta">about ' + shape.knowledge.marks + " marks \u00b7 " +
-    shape.knowledge.minutes + " min \u00b7 typed answers, two to six sentences each</span></div></div>";
+    shape.knowledge.minutes +
+    " min \u00b7 " +
+    (recall
+      ? "the quiz, typed not clicked \u2014 one sentence each"
+      : "typed answers, two to six sentences each") +
+    "</span></div></div>";
 
   if (exam && shape.examQuestions.length) {
     html +=
@@ -259,7 +268,7 @@ function renderShape(target, exam) {
     html +=
       '<div class="practise-stage-none">' + ui("warning", 13) +
       "<span>No exam questions in this one. ReviseIQ only sets exam questions where it knows the real structure of the paper \u2014 currently AQA GCSE History. " +
-      "Instead, the knowledge stage is longer.</span></div>";
+      "Instead, stage one runs the whole way and asks for developed written answers.</span></div>";
   }
 
   html +=
@@ -663,6 +672,7 @@ async function finish(auto) {
     subjectTitle: a.subjectTitle,
     timeUsedSeconds: a.elapsedSeconds || 0,
     knowledge: {
+      style: p.knowledge.style || "written",
       questions: p.knowledge.questions,
       answers: a.answers.knowledge || {}
     },
@@ -848,8 +858,12 @@ function renderError(message, canRetry) {
   );
 }
 
+export function stageNameFor(practise) {
+  return practise && practise.knowledge && practise.knowledge.style === "recall" ? "Recall" : "Knowledge";
+}
+
 function stageLabelFor(attempt, item) {
-  if (item.stage === "knowledge") return "Knowledge";
+  if (item.stage === "knowledge") return stageNameFor(attempt.practise);
   const exam = attempt.practise.exam;
   return exam ? exam.componentShort : "Exam";
 }
@@ -945,7 +959,8 @@ function renderPractise() {
     (!isExam && item.q.topic
       ? '<div class="pr-q-topic">' + escapeHtml(item.q.topic) + "</div>"
       : "") +
-    '<textarea class="pr-answer" data-practise-answer rows="' + (isExam ? 16 : 8) +
+    '<textarea class="pr-answer" data-practise-answer rows="' +
+    (isExam ? 16 : a.practise.knowledge.style === "recall" ? 3 : 8) +
     '" placeholder="' + (isExam ? "Write your answer as you would in the exam\u2026" : "Answer in your own words\u2026") +
     '">' + escapeHtml(answer) + "</textarea>" +
     '<div class="pr-card-foot">' +
@@ -1023,7 +1038,7 @@ function renderResults() {
     '<span class="pr-score-time">' + mins + " min" + (a.autoSubmitted ? " \u00b7 time called" : "") + "</span>" +
     "</div>" +
     '<div class="pr-score-split">' +
-    '<span class="pr-split-bit">Knowledge ' + r.knowledge.mark + "/" + r.knowledge.outOf + "</span>" +
+    '<span class="pr-split-bit">' + stageNameFor(p) + " " + r.knowledge.mark + "/" + r.knowledge.outOf + "</span>" +
     (r.exam
       ? '<span class="pr-split-bit">' + escapeHtml(r.exam.componentShort) + " " + r.exam.mark + "/" + r.exam.outOf + "</span>"
       : "") +
@@ -1035,7 +1050,7 @@ function renderResults() {
   if (r.examError) {
     html +=
       '<div class="pr-warn">' + ui("warning", 13) +
-      "<span>The exam questions couldn\u2019t be marked this time, so only the knowledge stage is scored above.</span></div>";
+      "<span>The exam questions couldn\u2019t be marked this time, so only stage one is scored above.</span></div>";
   }
   if (!p.exam && p.examError) {
     html +=

@@ -3,8 +3,11 @@
  *
  * Builds a "Practise" - the middle rung between Quiz me and Test me.
  *
- * Stage one is always hard open-ended knowledge questions written from the
- * student's own notes, and works on any page in any subject.
+ * Stage one is always written from the student's own notes and works on any
+ * page in any subject, but it comes in two shapes. Where real exam questions
+ * follow, it is rapid recall: short, hard, one-sentence answers, the quiz typed
+ * rather than clicked. Where they do not, it is the longer explain-and-develop
+ * stage, because then it is the whole test.
  *
  * Stage two is real exam questions, and is only ever built where the actual
  * structure of the exam is known - which today means AQA GCSE History. It is
@@ -23,7 +26,8 @@ import {
   examBudgetMinutes,
   selectExamQuestions,
   allowedMinutes,
-  buildKnowledgePrompt
+  buildKnowledgePrompt,
+  buildRecallPrompt
 } from "../../src/practise/prompt.js";
 import { requireUser } from "../_lib/auth.js";
 
@@ -115,17 +119,24 @@ async function readBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 }
 
-function normaliseKnowledge(raw, number) {
+function normaliseKnowledge(raw, number, style) {
+  const recall = style === "recall";
   const prompt = String(raw.prompt || "").trim();
   if (!prompt) return null;
   let marks = Math.round(Number(raw.marks) || 0);
-  if (!marks || marks < 2) marks = 3;
-  if (marks > 6) marks = 6;
+  if (recall) {
+    // Recall questions are two marks each by definition, whatever the model says.
+    if (!marks || marks < 1) marks = 2;
+    if (marks > 3) marks = 2;
+  } else {
+    if (!marks || marks < 2) marks = 3;
+    if (marks > 6) marks = 6;
+  }
   const rubric = (Array.isArray(raw.rubric) ? raw.rubric : [])
     .map((r) => String(r || "").trim())
     .filter(Boolean)
-    .slice(0, 8);
-  if (rubric.length < 2) return null;
+    .slice(0, recall ? 3 : 8);
+  if (rubric.length < (recall ? 1 : 2)) return null;
   // The marks a question is worth can never exceed the number of distinct
   // points the mark scheme actually lists.
   if (marks > rubric.length) marks = rubric.length;
@@ -253,16 +264,19 @@ export default async function handler(req, res) {
   const wantExam = Boolean(component && option && option.componentId === component.id);
 
   const knowledgePlan = planKnowledge(targetMinutes, wantExam);
-  const knowledgePrompt = buildKnowledgePrompt({
+  const stageArgs = {
     count: knowledgePlan.count,
     marks: knowledgePlan.marks,
     minutes: knowledgePlan.minutes,
+    marksPerQuestion: knowledgePlan.marksPerQuestion,
     pageTitle,
     subjectTitle,
     includedPages,
     notes,
     hasExamStage: wantExam
-  });
+  };
+  const knowledgePrompt =
+    knowledgePlan.style === "recall" ? buildRecallPrompt(stageArgs) : buildKnowledgePrompt(stageArgs);
 
   const examPromise = wantExam
     ? buildExamStage(
@@ -304,7 +318,7 @@ export default async function handler(req, res) {
   const seen = new Set();
   const questions = [];
   (generated.questions || []).forEach((raw) => {
-    const q = normaliseKnowledge(raw || {}, questions.length + 1);
+    const q = normaliseKnowledge(raw || {}, questions.length + 1, knowledgePlan.style);
     if (!q) return;
     const fingerprint = q.prompt.toLowerCase().replace(/[^a-z0-9 ]/g, "").slice(0, 80);
     if (seen.has(fingerprint)) return;
@@ -312,7 +326,8 @@ export default async function handler(req, res) {
     questions.push(q);
   });
 
-  if (questions.length < 3) {
+  const minimum = knowledgePlan.style === "recall" ? 4 : 3;
+  if (questions.length < minimum) {
     return send(res, 502, { error: "Gemini returned too few usable questions. Try again." });
   }
 
@@ -325,6 +340,7 @@ export default async function handler(req, res) {
       title: String(generated.title || "").trim().slice(0, 90) || pageTitle || "Practise",
       targetMinutes,
       knowledge: {
+        style: knowledgePlan.style,
         minutes: knowledgePlan.minutes,
         marks: knowledgeMarks,
         questions: kept

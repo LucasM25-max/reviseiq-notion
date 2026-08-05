@@ -46,6 +46,23 @@ export const EXAM_SHARE = 0.6;
 export const MIN_KNOWLEDGE_QUESTIONS = 3;
 export const MAX_KNOWLEDGE_QUESTIONS = 7;
 
+/*
+ * Stage one comes in two shapes.
+ *
+ * "recall" is the quiz, typed rather than clicked: short, hard, one-sentence
+ * questions that warm the knowledge up before the real exam questions arrive.
+ * It is what stage one is whenever there IS an exam stage to follow, because
+ * long written answers twice over is just a slower mock paper.
+ *
+ * "written" is the longer explain-and-develop stage. It is used only where the
+ * structure of the exam is unknown, so there is no exam stage and stage one is
+ * the whole test.
+ */
+export const RECALL_SECONDS_PER_QUESTION = 50;
+export const RECALL_MARKS_PER_QUESTION = 2;
+export const MIN_RECALL_QUESTIONS = 5;
+export const MAX_RECALL_QUESTIONS = 12;
+
 export function clampTarget(minutes) {
   const n = Math.round(Number(minutes) || 0);
   if (!n) return DEFAULT_TARGET_MINUTES;
@@ -65,16 +82,30 @@ export function minutesForMarks(marks) {
  */
 export function planKnowledge(targetMinutes, hasExamStage) {
   const target = clampTarget(targetMinutes);
-  const minutes = hasExamStage ? Math.max(5, Math.round(target * (1 - EXAM_SHARE))) : target;
+
+  if (hasExamStage) {
+    // Short recall, then the real thing. Roughly fifty seconds a question.
+    const minutes = Math.max(5, Math.round(target * (1 - EXAM_SHARE)));
+    let count = Math.round((minutes * 60) / RECALL_SECONDS_PER_QUESTION);
+    count = Math.max(MIN_RECALL_QUESTIONS, Math.min(MAX_RECALL_QUESTIONS, count));
+    return {
+      minutes: minutes,
+      marks: count * RECALL_MARKS_PER_QUESTION,
+      count: count,
+      style: "recall",
+      marksPerQuestion: RECALL_MARKS_PER_QUESTION
+    };
+  }
+
+  const minutes = target;
   const marks = Math.max(6, Math.round(minutes / KNOWLEDGE_MINUTES_PER_MARK));
-  // Around four to five marks a question reads best. With no exam stage to
-  // follow, questions are pitched slightly smaller so that a longer budget buys
-  // more of them rather than the same three enormous ones - the whole point of
-  // the knowledge-only version is that stage one runs longer.
-  const marksPerQuestion = hasExamStage ? 4.5 : 3.6;
+  // With no exam stage to follow, questions are pitched at three to four marks
+  // so that a longer budget buys more of them rather than the same three
+  // enormous ones - the whole point of this version is that it covers ground.
+  const marksPerQuestion = 3.6;
   let count = Math.round(marks / marksPerQuestion);
   count = Math.max(MIN_KNOWLEDGE_QUESTIONS, Math.min(MAX_KNOWLEDGE_QUESTIONS, count));
-  return { minutes, marks, count };
+  return { minutes, marks, count, style: "written", marksPerQuestion: marksPerQuestion };
 }
 
 /** How long the exam stage may run for, before the overall cap is applied. */
@@ -204,6 +235,76 @@ export function buildKnowledgePrompt(cfg) {
 }
 
 /**
+ * Stage one, recall shape: the quiz, typed instead of clicked.
+ *
+ * Used when exam questions follow, so this stage has to be quick. Short, hard,
+ * one-sentence answers - the same difficulty as Quiz me, but the student has to
+ * produce the answer rather than recognise it.
+ *
+ * cfg: { count, marks, minutes, marksPerQuestion, pageTitle, subjectTitle,
+ *        includedPages, notes }
+ */
+export function buildRecallPrompt(cfg) {
+  const per = cfg.marksPerQuestion || RECALL_MARKS_PER_QUESTION;
+
+  const system = [
+    "You are a demanding subject teacher writing a rapid recall test for a GCSE student, using only the revision notes they give you.",
+    "Each question is answered by typing a single sentence. There are no options to choose from: the student must produce the answer from memory.",
+    "",
+    "ABSOLUTE RULES",
+    "1. Every question must be answerable from the notes alone. Never test a fact that is not in the notes, and never require outside knowledge.",
+    "2. Each answer must fit in one sentence. If an honest answer needs a paragraph, the question is wrong for this test - split it or drop it.",
+    "3. Do not phrase questions as 'according to the notes' or 'in this document'. Ask the question directly.",
+    "4. Never ask two questions about the same fact, and spread the questions across the whole of the notes rather than clustering at the start.",
+    "5. No opinions, no 'how do you feel', no essay questions.",
+    "",
+    "DIFFICULTY - THIS IS THE POINT OF THE EXERCISE",
+    "Pitch these exactly as hard as a good multiple-choice quiz question, minus the options.",
+    "- Demand specifics: names, dates, figures, terms, sequences, causes, consequences, definitions.",
+    "- Good shapes: 'name the two ...', 'what did X do in 1924', 'why did X lead to Y', 'what is the difference between X and Y',",
+    "  'give the term for ...', 'what was the immediate consequence of ...'.",
+    "- A student who has skim-read the notes should not be able to answer. A student who knows them should answer in seconds.",
+    "",
+    "MARKS",
+    "Every question is worth exactly " + per + " marks: one mark for each distinct thing the sentence must contain.",
+    "",
+    "FOR EACH QUESTION YOU MUST RETURN",
+    "- number: the question number, starting at 1.",
+    "- prompt: the question itself, plain text, one sentence.",
+    "- marks: " + per + ".",
+    "- rubric: exactly " + per + " entries, each a distinct creditworthy point stated in full",
+    "  (for example 'the Dawes Plan rescheduled reparations payments'), never vague advice like 'good detail'.",
+    "- modelAnswer: the full-mark answer, one sentence, written as a strong student would type it under time pressure.",
+    "- topic: a two to five word label for the fact being tested. These labels are reused as revision targets, so keep them specific.",
+    "",
+    "British English. Plain text only - no markdown, no bullets, no numbering inside fields.",
+    "Return JSON only, matching the schema exactly."
+  ].join("\n");
+
+  const pages = (cfg.includedPages || []).filter(Boolean);
+  const user = [
+    "Write " + cfg.count + " hard recall questions on the notes below, each worth " + per + " marks (" + cfg.marks + " marks in total).",
+    "",
+    "Subject: " + (cfg.subjectTitle || "Unknown"),
+    "Page being revised: " + (cfg.pageTitle || "Untitled"),
+    pages.length > 1 ? "Pages included: " + pages.join("; ") : "",
+    "",
+    "The student has about " + cfg.minutes + " minutes for this stage, so every answer must be one sentence they can type quickly.",
+    "Exam-style questions follow this stage, so test recall here and leave exam technique to those.",
+    "",
+    "Give the practise a short title naming the topic (no more than eight words).",
+    "",
+    "--- NOTES START ---",
+    cfg.notes,
+    "--- NOTES END ---"
+  ]
+    .filter((l) => l !== "")
+    .join("\n");
+
+  return { system, user };
+}
+
+/**
  * Marking the knowledge stage, against the rubric that came with the question.
  *
  * cfg: { pageTitle, subjectTitle, questions: [{number, prompt, marks, rubric, modelAnswer, topic}],
@@ -211,6 +312,7 @@ export function buildKnowledgePrompt(cfg) {
  */
 export function buildKnowledgeMarkingPrompt(cfg) {
   const notes = String(cfg.notes || "").slice(0, 14000);
+  const recall = cfg.style === "recall";
 
   const system = [
     "You are marking a GCSE student's written answers against the mark scheme supplied with each question.",
@@ -222,7 +324,9 @@ export function buildKnowledgeMarkingPrompt(cfg) {
     "- Credit valid creditworthy points that are not in the rubric, up to the marks available.",
     "- Mark positively, but be honest and precise. Do not inflate marks to be encouraging: a generous mark is a disservice to a student before a real exam.",
     "- A blank or wholly irrelevant answer scores 0.",
-    "- Length is not merit. A short, precise answer can score full marks.",
+    recall
+      ? "- These are rapid recall questions worth two marks each, answered in one sentence. Award full marks for a correct one-line answer and never withhold a mark because the answer could have been longer."
+      : "- These are developed written answers of two to six sentences. Length is not merit: a short, precise answer can score full marks.",
     "- Never award more than the marks available for that question.",
     "",
     "FOR EACH QUESTION RETURN",

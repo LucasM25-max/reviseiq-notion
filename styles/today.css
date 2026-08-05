@@ -1,52 +1,11 @@
 /* ---------- Today dashboard ---------- */
 .today-sub{font-size:14.5px;color:var(--text-soft);margin:-8px 0 20px 0;line-height:1.55;}
 
-.today-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:28px;}
-.stat-card{
-  background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-m);
-  padding:13px 14px;display:flex;flex-direction:column;gap:2px;box-shadow:var(--shadow-s);
-}
-.stat-icon{color:var(--text-faint);margin-bottom:4px;display:flex;}
-.stat-value{font-family:var(--font-serif);font-size:22px;line-height:1.15;color:var(--text);}
-.stat-label{font-size:11.5px;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.stat-card.tone-accent{border-color:var(--accent-2);background:var(--accent-softer);}
-.stat-card.tone-accent .stat-icon,.stat-card.tone-accent .stat-value{color:var(--accent);}
-.stat-card.tone-warm .stat-icon,.stat-card.tone-warm .stat-value{color:var(--warn);}
-.stat-card.tone-good .stat-icon,.stat-card.tone-good .stat-value{color:var(--success);}
-.stat-card.tone-urgent{border-color:var(--danger);}
-.stat-card.tone-urgent .stat-icon,.stat-card.tone-urgent .stat-value{color:var(--danger);}
-
 .today-section-label{
   font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;
   color:var(--text-faint);margin:26px 0 10px 0;display:flex;align-items:baseline;gap:8px;
 }
 .today-section-label .label-note{text-transform:none;letter-spacing:0;font-weight:500;font-size:11.5px;}
-
-.plan-total{font-size:12.5px;color:var(--text-soft);margin:-4px 0 10px 0;}
-.plan-list,.shaky-list,.gap-list{display:flex;flex-direction:column;gap:8px;}
-
-.plan-row,.shaky-row,.gap-row{
-  width:100%;display:flex;align-items:center;gap:12px;text-align:left;
-  background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-m);
-  padding:13px 14px;color:var(--text);box-shadow:var(--shadow-s);
-}
-.plan-row:hover,.shaky-row:hover,.gap-row:hover{border-color:var(--accent-2);background:var(--accent-softer);}
-.plan-rank{
-  width:22px;height:22px;flex-shrink:0;border-radius:50%;background:var(--accent-soft);color:var(--accent);
-  font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;
-}
-.plan-icon{display:flex;flex-shrink:0;}
-.plan-info{flex:1;min-width:0;}
-.plan-title{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.plan-detail{font-size:12px;color:var(--text-faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.plan-minutes{
-  font-size:12px;font-weight:600;color:var(--text-soft);background:var(--bg-soft);
-  border-radius:999px;padding:3px 9px;flex-shrink:0;font-variant-numeric:tabular-nums;
-}
-.plan-go{color:var(--text-faint);display:flex;flex-shrink:0;}
-.plan-row:hover .plan-go,.gap-row:hover .plan-go{color:var(--accent);}
-.plan-row.kind-shaky .plan-rank{background:var(--warn-soft);color:var(--warn);}
-.plan-row.kind-gap .plan-rank{background:var(--bg-soft);color:var(--text-soft);}
 
 .plan-empty{
   display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;
@@ -55,23 +14,3 @@
 .plan-empty p{margin:0;max-width:420px;font-size:14px;color:var(--text-soft);line-height:1.6;}
 .plan-empty-icon{opacity:.9;}
 
-.shaky-meter{width:84px;height:6px;border-radius:999px;background:var(--bg-soft);overflow:hidden;flex-shrink:0;}
-.shaky-fill{height:100%;background:var(--warn);border-radius:999px;}
-.shaky-pct{font-size:11.5px;color:var(--text-faint);width:34px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums;}
-
-.week-graph{
-  display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;
-  background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-m);padding:14px 12px 10px 12px;
-}
-.week-col{display:flex;flex-direction:column;align-items:center;gap:5px;}
-.week-bar-wrap{height:60px;display:flex;align-items:flex-end;}
-.week-bar{width:26px;border-radius:5px 5px 3px 3px;background:var(--accent-soft);}
-.week-col.is-today .week-bar{background:var(--accent-2);}
-.week-count{font-size:11px;color:var(--text-faint);height:13px;font-variant-numeric:tabular-nums;}
-.week-day{font-size:11px;color:var(--text-faint);}
-.week-col.is-today .week-day{color:var(--accent);font-weight:700;}
-
-@media (max-width:720px){
-  .today-strip{grid-template-columns:repeat(2,1fr);}
-  .shaky-meter{display:none;}
-}
