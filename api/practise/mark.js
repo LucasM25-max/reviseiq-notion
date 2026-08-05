@@ -16,7 +16,7 @@ import { requireUser } from "../_lib/auth.js";
 
 const MAX_ANSWER_CHARS = 12000;
 
-/* Sent so notesGaps is judged against the student's own notes, not guessed. */
+/* Sent so the marker can judge answers against the notes the questions came from. */
 const MAX_NOTE_CHARS = 14000;
 
 const MAX_STRENGTHS = 2;
@@ -95,7 +95,6 @@ const EXAM_RESULT_SCHEMA = {
       }
     },
     missedContent: { type: "ARRAY", items: { type: "STRING" } },
-    notesGaps: { type: "ARRAY", items: { type: "STRING" } },
     overallComment: { type: "STRING" }
   },
   required: ["questions", "strengths", "focusAreas", "missedContent", "overallComment"]
@@ -303,7 +302,6 @@ export default async function handler(req, res) {
         action: String(f.action || "")
       })),
       missedContent: (eOut.marked.missedContent || []).map(String),
-      notesGaps: (eOut.marked.notesGaps || []).map(String),
       overallComment: String(eOut.marked.overallComment || "")
     };
   }
@@ -348,7 +346,6 @@ export default async function handler(req, res) {
       missedContent: (kMarked.missedContent || [])
         .map(String)
         .concat(examResult ? examResult.missedContent : []),
-      notesGaps: examResult ? examResult.notesGaps : [],
       overallComment: String(kMarked.overallComment || ""),
       examComment: examResult ? examResult.overallComment : "",
       markedAt: Date.now(),

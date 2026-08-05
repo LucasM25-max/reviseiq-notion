@@ -1,6 +1,6 @@
 // All interaction wiring for the main editor panel.
 import { store, getPage, findBlockById, findContainer } from "../state.js";
-import { newBlock } from "../model.js";
+import { newBlock, newTimelineItem } from "../model.js";
 import { escapeHtml, sanitizeHtmlFragment, compressImageFile, extractYouTubeId } from "../utils.js";
 import {
   insertBlockAfter,
@@ -25,6 +25,7 @@ import {
   removeToolbar
 } from "../overlays.js";
 import { startFlashcards, setFlashcardsNextTask } from "../render/flashcards.js";
+import { openPrintDialog } from "../print.js";
 import {
   togglePlanSettings,
   togglePlanTimeline,
@@ -69,6 +70,12 @@ import {
   removeExamDate
 } from "../pages.js";
 import { focusBlock, focusBlockAtOffset, isCursorAtStart, splitAtCursor, normalizeEmptyContent } from "../focus.js";
+
+/* Puts the caret in one field of one timeline entry. */
+function focusTimelineField(itemId, field) {
+  const el = document.querySelector('[data-tl-item="' + itemId + '"] [data-tl-field="' + field + '"]');
+  if (el) focusTitleEnd(el);
+}
 
 /* Puts the caret at the end of the page title, for the Rename action. */
 function focusTitleEnd(el) {
@@ -147,6 +154,7 @@ export function initMainEvents() {
           const el = document.getElementById("page-title");
           if (el) focusTitleEnd(el);
         },
+        onPrint: (id) => openPrintDialog(id),
         onDelete: (id) => confirmDeletePage(id)
       });
       return;
@@ -356,6 +364,32 @@ export function initMainEvents() {
       return;
     }
 
+    const tlAdd = e.target.closest("[data-tl-add]");
+    if (tlAdd) {
+      const tlb = findBlockById(page.blocks, tlAdd.dataset.tlAdd);
+      if (tlb) {
+        if (!Array.isArray(tlb.items)) tlb.items = [];
+        const item = newTimelineItem();
+        tlb.items.push(item);
+        renderBlocksOnly();
+        focusTimelineField(item.id, "date");
+        scheduleSave();
+      }
+      return;
+    }
+    const tlDel = e.target.closest("[data-tl-del]");
+    if (tlDel) {
+      const wrap = tlDel.closest("[data-tl-block]");
+      const tlb2 = wrap ? findBlockById(page.blocks, wrap.dataset.tlBlock) : null;
+      if (tlb2 && Array.isArray(tlb2.items)) {
+        tlb2.items = tlb2.items.filter((it) => it.id !== tlDel.dataset.tlDel);
+        if (!tlb2.items.length) tlb2.items.push(newTimelineItem());
+        renderBlocksOnly();
+        scheduleSave();
+      }
+      return;
+    }
+
     const tAddRow = e.target.closest("[data-table-add-row]");
     if (tAddRow) {
       const tb1 = findBlockById(page.blocks, tAddRow.dataset.tableAddRow);
@@ -461,6 +495,21 @@ export function initMainEvents() {
       return;
     }
 
+    if (t.matches("[data-tl-field]")) {
+      const itemEl = t.closest("[data-tl-item]");
+      const wrapEl = t.closest("[data-tl-block]");
+      const tlb = wrapEl ? findBlockById(page.blocks, wrapEl.dataset.tlBlock) : null;
+      const item = tlb && Array.isArray(tlb.items) && itemEl
+        ? tlb.items.find((x) => x.id === itemEl.dataset.tlItem)
+        : null;
+      if (item) {
+        // Inline formatting is kept so bold survives adding another entry.
+        item[t.dataset.tlField] = sanitizeHtmlFragment(t.innerHTML);
+        scheduleSave();
+      }
+      return;
+    }
+
     if (t.classList.contains("rt")) {
       const row = t.closest(".block-row");
       if (!row) return;
@@ -527,6 +576,32 @@ export function initMainEvents() {
       t.blur();
       return;
     }
+    const tlField = t.closest ? t.closest("[data-tl-field]") : null;
+    if (tlField) {
+      // Enter moves date -> what happened -> detail, then starts a new entry.
+      // Shift+Enter is a line break inside the field, as everywhere else.
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        const itemEl = tlField.closest("[data-tl-item]");
+        const which = tlField.dataset.tlField;
+        if (which === "date") focusTimelineField(itemEl.dataset.tlItem, "title");
+        else if (which === "title") focusTimelineField(itemEl.dataset.tlItem, "detail");
+        else if (page) {
+          const wrapEl = tlField.closest("[data-tl-block]");
+          const tlb = wrapEl ? findBlockById(page.blocks, wrapEl.dataset.tlBlock) : null;
+          if (tlb && Array.isArray(tlb.items)) {
+            const idx = tlb.items.findIndex((x) => x.id === itemEl.dataset.tlItem);
+            const item = newTimelineItem();
+            tlb.items.splice(idx + 1, 0, item);
+            renderBlocksOnly();
+            focusTimelineField(item.id, "date");
+            scheduleSave();
+          }
+        }
+      }
+      return;
+    }
+
     if (!page || !t.classList || !t.classList.contains("rt")) return;
 
     const row = t.closest(".block-row");

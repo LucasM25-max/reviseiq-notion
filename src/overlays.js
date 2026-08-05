@@ -396,6 +396,9 @@ export function showPageMenu(anchorEl, pageId, handlers) {
     '<button data-act="rename"><span class="ctx-icon">' +
     ui("text", 15) +
     "</span> Rename</button>" +
+    '<button data-act="print"><span class="ctx-icon">' +
+    ui("download", 15) +
+    "</span> Export as PDF</button>" +
     '<div class="ctx-divider"></div>' +
     '<button data-act="del" class="danger"><span class="ctx-icon">' +
     ui("trash", 15) +
@@ -411,6 +414,7 @@ export function showPageMenu(anchorEl, pageId, handlers) {
     menu.remove();
     if (act === "add" && handlers.onAddChild) handlers.onAddChild(pageId);
     if (act === "rename" && handlers.onRename) handlers.onRename(pageId);
+    if (act === "print" && handlers.onPrint) handlers.onPrint(pageId);
     if (act === "del" && handlers.onDelete) handlers.onDelete(pageId);
   });
 }

@@ -10,8 +10,9 @@ import { requireUser } from "../_lib/auth.js";
 
 const MAX_ANSWER_CHARS = 12000;
 
-/* The student's own notes are sent so notesGaps can be judged against what
- * they actually wrote down, rather than guessed at from the syllabus. */
+/* The student's own notes are sent because the paper was written from them:
+ * the marker uses them to judge what the student should have known, never to
+ * claim the notes are missing something. */
 const MAX_NOTE_CHARS = 18000;
 
 /* Feedback is capped here as well as in the prompt: a model that pads anyway
@@ -56,7 +57,6 @@ const RESULT_SCHEMA = {
       }
     },
     missedContent: { type: "ARRAY", items: { type: "STRING" } },
-    notesGaps: { type: "ARRAY", items: { type: "STRING" } },
     overallComment: { type: "STRING" }
   },
   required: ["questions", "strengths", "focusAreas", "missedContent", "overallComment"]
@@ -185,7 +185,6 @@ export default async function handler(req, res) {
         }))
         .slice(0, MAX_FOCUS_AREAS),
       missedContent: (marked.missedContent || []).map(String),
-      notesGaps: (marked.notesGaps || []).map(String),
       overallComment: String(marked.overallComment || ""),
       markedAt: Date.now()
     }

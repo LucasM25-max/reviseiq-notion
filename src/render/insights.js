@@ -4,7 +4,7 @@ import { escapeHtml, formatDateHuman } from "../utils.js";
 import { ui } from "../icons.js";
 import { openInsights } from "../exam/insights.js";
 
-const KIND_LABEL = { focus: "Focus area", missed: "Missed point", gap: "Notes gap" };
+const KIND_LABEL = { focus: "Focus area", missed: "Missed point", weak: "Weak spot" };
 
 function relative(ts) {
   if (!ts) return "";

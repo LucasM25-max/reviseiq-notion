@@ -1157,13 +1157,6 @@ function renderResults() {
     });
   }
 
-  if ((r.notesGaps || []).length) {
-    html +=
-      '<div class="pr-gaps"><strong>Your notes don\u2019t seem to cover</strong><ul>' +
-      r.notesGaps.map((g) => "<li>" + escapeHtml(g) + "</li>").join("") +
-      "</ul></div>";
-  }
-
   html += "</div>";
 
   html +=

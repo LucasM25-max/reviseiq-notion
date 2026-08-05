@@ -21,6 +21,13 @@ export const BLOCK_TYPES = [
   { type: "callout", icon: ui("list", 16), title: "Callout", desc: "Note with an icon", aliases: "note info" },
   { type: "code", icon: ui("code", 16), title: "Code", desc: "Code block", aliases: "snippet" },
   { type: "table", icon: ui("table", 16), title: "Table", desc: "Simple grid table", aliases: "grid" },
+  {
+    type: "timeline",
+    icon: ui("timeline", 16),
+    title: "Timeline",
+    desc: "Dated events down a rail, with detail",
+    aliases: "chronology dates sequence order events history"
+  },
   { type: "divider", icon: ui("divider", 16), title: "Divider", desc: "Horizontal line", aliases: "line separator" },
   { type: "image", icon: ui("image", 16), title: "Image", desc: "Upload or paste", aliases: "picture photo" },
   { type: "video", icon: ui("play", 16), title: "Video", desc: "Embed a YouTube link", aliases: "youtube embed" },

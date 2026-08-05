@@ -98,7 +98,7 @@ function addInsight(item) {
 }
 
 /**
- * Every wrong answer becomes a "gap" insight, keyed on the question's topic so
+ * Every wrong answer becomes a "weak spot" insight, keyed on the topic so
  * getting three questions on the same topic wrong records one weak spot, not
  * three. Any focus areas from the optional review pass are recorded too.
  */
@@ -117,7 +117,7 @@ export function recordQuizInsights(attempt, focusOnly) {
     (attempt.result.wrong || []).forEach((w) => {
     addInsight(
       Object.assign({}, base, {
-        kind: "gap",
+        kind: "weak",
         text: w.topic || w.question || "",
         detail: w.correct ? "Correct answer: " + w.correct : ""
       })

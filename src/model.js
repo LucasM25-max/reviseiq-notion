@@ -7,6 +7,11 @@ import {
   DEFAULT_CALLOUT_ICON
 } from "./icons.js";
 
+/** One dated entry on a timeline block. */
+export function newTimelineItem() {
+  return { id: uid(), date: "", title: "", detail: "" };
+}
+
 export function newBlock(type) {
   const b = { id: uid(), type };
   switch (type) {
@@ -36,6 +41,10 @@ export function newBlock(type) {
       break;
     case "table":
       b.rows = [["", ""], ["", ""]];
+      break;
+    case "timeline":
+      // Two empty entries: enough to show the shape without looking cluttered.
+      b.items = [newTimelineItem(), newTimelineItem()];
       break;
     case "toggle":
       b.summary = "";
@@ -105,6 +114,17 @@ function migrateBlockIcons(blocks) {
       migrateBlockIcons(b.children);
     }
     if (b.type === "toggle") migrateBlockIcons(b.children);
+    if (b.type === "timeline") {
+      if (!Array.isArray(b.items)) b.items = [newTimelineItem()];
+      b.items = b.items.filter((it) => it && typeof it === "object");
+      b.items.forEach((it) => {
+        if (!it.id) it.id = uid();
+        if (typeof it.date !== "string") it.date = "";
+        if (typeof it.title !== "string") it.title = "";
+        if (typeof it.detail !== "string") it.detail = "";
+      });
+      if (!b.items.length) b.items.push(newTimelineItem());
+    }
   });
 }
 

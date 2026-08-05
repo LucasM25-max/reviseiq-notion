@@ -141,3 +141,37 @@ table.b-table tr:first-child td{background:var(--bg-soft);}
   padding:7px 6px;border-radius:6px;cursor:text;
 }
 .add-block-ghost:hover{background:var(--bg-soft);color:var(--text-soft);}
+\n
+/* Timeline block ---------------------------------------------------------- */
+/* A rail down the left, the date and headline on one line, the detail beneath
+   at full width - so a dense chronology stays readable without a table. */
+.b-timeline{position:relative;margin:4px 0 2px;}
+.tl-item{position:relative;display:flex;gap:12px;padding-bottom:14px;}
+.tl-marker{position:relative;flex:0 0 12px;display:flex;justify-content:center;}
+.tl-marker::before{content:"";position:absolute;top:12px;bottom:-14px;width:2px;background:var(--border);}
+.tl-item:last-of-type .tl-marker::before{display:none;}
+.tl-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);margin-top:7px;box-shadow:0 0 0 3px var(--accent-softer);}
+.tl-body{flex:1;min-width:0;}
+.tl-head{display:flex;align-items:baseline;gap:10px;}
+.tl-date{
+  flex:0 0 auto;min-width:70px;max-width:190px;padding:2px 0;outline:none;
+  font-size:12.5px;font-weight:650;letter-spacing:.02em;color:var(--accent);
+}
+.tl-title{flex:1;min-width:0;padding:2px 0;outline:none;font-size:15px;font-weight:600;color:var(--text);}
+.tl-detail{padding:1px 0 0;outline:none;font-size:14px;line-height:1.55;color:var(--text-soft);}
+.tl-date[data-placeholder]:empty::before,
+.tl-title[data-placeholder]:empty::before,
+.tl-detail[data-placeholder]:empty::before{content:attr(data-placeholder);color:var(--text-faint);font-weight:400;}
+.tl-del{
+  flex:0 0 auto;opacity:0;background:none;border:none;color:var(--text-faint);
+  padding:2px;border-radius:5px;cursor:pointer;transition:opacity .12s ease;
+}
+.tl-item:hover .tl-del{opacity:1;}
+.tl-del:hover{color:var(--danger);background:var(--danger-soft);}
+.tl-add{
+  display:inline-flex;align-items:center;gap:6px;margin-left:24px;opacity:0;
+  font-size:12px;color:var(--text-soft);background:none;border:1px solid var(--border);
+  border-radius:6px;padding:3px 9px;cursor:pointer;transition:opacity .12s ease;
+}
+.b-timeline:hover .tl-add,.tl-add:focus{opacity:1;}
+.tl-add:hover{border-color:var(--accent-2);color:var(--accent);}

@@ -939,7 +939,6 @@ function mergeResults(attempt, results) {
   const strengths = [];
   const focusAreas = [];
   const missedContent = [];
-  const notesGaps = [];
   const questions = [];
   const comments = [];
 
@@ -958,7 +957,6 @@ function mergeResults(attempt, results) {
       })
     );
     (r.missedContent || []).forEach((x) => missedContent.push(x));
-    (r.notesGaps || []).forEach((x) => notesGaps.push(x));
     (r.questions || []).forEach((q) => {
       const copy = Object.assign({}, q);
       copy.number = sec.letter + q.number;
@@ -974,7 +972,6 @@ function mergeResults(attempt, results) {
     strengths: strengths,
     focusAreas: focusAreas,
     missedContent: missedContent,
-    notesGaps: notesGaps,
     questions: questions
   };
 }
@@ -1000,9 +997,6 @@ async function runFlashcards(attempt) {
   });
   (r.missedContent || []).forEach((m) => {
     misses.push({ topic: "Content", detail: typeof m === "string" ? m : m.point || "" });
-  });
-  (r.notesGaps || []).forEach((g) => {
-    misses.push({ topic: "Gap in notes", detail: typeof g === "string" ? g : g.point || "" });
   });
   (r.focusAreas || []).forEach((f) => {
     misses.push({ topic: f.area || "Technique", detail: [f.why, f.action].filter(Boolean).join(" ") });
@@ -1265,14 +1259,6 @@ function renderResults(attempt) {
       '<div class="result-block"><div class="result-block-title">' + ui("bulb", 14) +
       " Points you missed</div><ul class=\"result-points\">" +
       r.missedContent.map((m) => "<li>" + escapeHtml(m) + "</li>").join("") +
-      "</ul></div>";
-  }
-
-  if ((r.notesGaps || []).length) {
-    html +=
-      '<div class="result-block is-gap"><div class="result-block-title">' + ui("warning", 14) +
-      " Missing from your notes</div><ul class=\"result-points\">" +
-      r.notesGaps.map((m) => "<li>" + escapeHtml(m) + "</li>").join("") +
       "</ul></div>";
   }
 

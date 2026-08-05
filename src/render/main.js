@@ -15,12 +15,45 @@ import { practiseEligibility } from "../practise/session.js";
 import { renderWorkSection } from "./work.js";
 import { renderFeedbackSection } from "./insights.js";
 
+/*
+ * Painting the main column.
+ *
+ * The scroll position is only thrown away when the view genuinely changes
+ * (a different page, or switching to Plan). Re-rendering the same view -
+ * ticking a task, opening a section, checking a to-do, marking work - keeps
+ * you exactly where you were. Every button in the app re-renders through
+ * here, so this is the single place that behaviour lives.
+ */
+let paintedKey = "";
+
+function viewKey() {
+  if (store.currentView === "page") return "page:" + store.state.activePageId;
+  return String(store.currentView || "");
+}
+
+function paint(root, html) {
+  const main = document.getElementById("main");
+  const key = viewKey();
+  const sameView = key === paintedKey;
+  // On a phone the window scrolls; on a desktop the #main column does.
+  const keepMain = sameView && main ? main.scrollTop : 0;
+  const keepWindow = sameView ? window.scrollY || 0 : 0;
+  root.innerHTML = html;
+  paintedKey = key;
+  if (main) main.scrollTop = keepMain;
+  if (keepWindow) window.scrollTo(0, keepWindow);
+}
+
+/** Forces the next paint to start at the top, for a deliberate jump. */
+export function resetMainScroll() {
+  paintedKey = "";
+}
+
 export function renderMain() {
   const root = document.getElementById("main-inner");
 
   if (store.currentView === "plan") {
-    root.innerHTML = renderPlanView();
-    document.getElementById("main").scrollTop = 0;
+    paint(root, renderPlanView());
     renderToc();
     return;
   }
@@ -28,21 +61,20 @@ export function renderMain() {
   // Flashcards runs inside the main column on a desktop, so the sidebar and
   // the rest of the workspace stay exactly where they were.
   if (store.currentView === "flashcards") {
-    root.innerHTML = renderFlashcardsView();
+    paint(root, renderFlashcardsView());
     renderToc();
     return;
   }
 
   if (store.currentView === "calendar") {
-    root.innerHTML = renderCalendarView();
-    document.getElementById("main").scrollTop = 0;
+    paint(root, renderCalendarView());
     renderToc();
     return;
   }
 
   const page = getPage(store.state.activePageId);
   if (!page) {
-    root.innerHTML = renderEmptyState();
+    paint(root, renderEmptyState());
     renderToc();
     return;
   }
@@ -58,9 +90,7 @@ export function renderMain() {
   // Everything already sat on this page, plus any feedback still outstanding.
   html += renderWorkSection(page.id, { title: "Marked work on this page" });
   html += renderFeedbackSection({ pageId: page.id, title: "Exam feedback for this page", limit: 8 });
-  root.innerHTML = html;
-  root.scrollTop = 0;
-  document.getElementById("main").scrollTop = 0;
+  paint(root, html);
   renderToc();
 }
 

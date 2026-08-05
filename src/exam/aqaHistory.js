@@ -497,12 +497,10 @@ export function buildMarkingPrompt(opts) {
     "that cost the marks, and one concrete action for next time;\n" +
     "- missedContent: the specific historical points absent across the whole script, so the student knows " +
     "exactly what to revise;\n" +
-    (notes
-      ? "- notesGaps: points the mark scheme expected which are genuinely absent from the student's own " +
-        "notes, which are supplied below. Quote the line of their notes that comes closest, or say that " +
-        "the notes do not touch it at all. Never guess: if the notes cover it and the student simply did " +
-        "not use it, that belongs in focus areas instead.\n\n"
-      : "- notesGaps: points the mark scheme expected which the student's own notes do not appear to contain.\n\n") +
+    "\nThis paper was written from the student's own revision notes, so everything the mark scheme asks " +
+    "for is in those notes somewhere. Never tell the student their notes do not cover something, and never " +
+    "speculate about what their notes contain. If they knew it but did not use it, that is a focus area; " +
+    "if they did not know it, that is missed content.\n\n" +
     "Do not award or mention a grade: grade boundaries move every year and a fabricated grade would " +
     "mislead. Report marks only. British English. Return only the JSON object.";
 
@@ -523,7 +521,7 @@ export function buildMarkingPrompt(opts) {
     answers.join("\n\n---\n\n") + "\n\n" +
     "TIME USED: " + formatDuration(opts.timeUsedSeconds) + " of " + component.timeLimitMinutes + " minutes." +
     (notes
-      ? "\n\nTHE STUDENT'S OWN REVISION NOTES ON THIS TOPIC (use these only to judge notesGaps)\n" +
+      ? "\n\nTHE NOTES THIS PAPER WAS WRITTEN FROM (use them to judge what the student should have known)\n" +
         "--- NOTES START ---\n" + notes + "\n--- NOTES END ---"
       : "");
 

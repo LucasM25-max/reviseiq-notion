@@ -49,6 +49,7 @@ export function duplicateBlock(page, blockId) {
   (function assignNewIds(bl) {
     bl.id = uid();
     if ((bl.type === "toggle" || bl.type === "callout") && Array.isArray(bl.children)) bl.children.forEach(assignNewIds);
+    if (bl.type === "timeline" && Array.isArray(bl.items)) bl.items.forEach((it) => (it.id = uid()));
   })(clone);
   c.arr.splice(c.idx + 1, 0, clone);
 }

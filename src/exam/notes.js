@@ -53,6 +53,13 @@ function blocksToText(blocks, out, depth) {
       case "code":
         if (t) out.push(t);
         break;
+      case "timeline":
+        (b.items || []).forEach((it) => {
+          const line = [stripHtml(it.date), stripHtml(it.title)].filter(Boolean).join(" - ");
+          const detail = stripHtml(it.detail);
+          if (line || detail) out.push("- " + [line, detail].filter(Boolean).join(": "));
+        });
+        break;
       case "table":
         (b.rows || []).forEach((row) => {
           const line = row.map((c) => stripHtml(c)).filter(Boolean).join(" | ");

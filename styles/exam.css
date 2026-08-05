@@ -415,7 +415,6 @@
   padding: 13px 15px;
   background: var(--card-bg);
 }
-.result-block.is-gap { background: var(--danger-soft); border-color: #e6cac2; }
 .result-block-title { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; margin-bottom: 8px; }
 .result-points { margin: 0; padding-left: 18px; }
 .result-points li { font-size: 13px; line-height: 1.55; margin-bottom: 6px; }
@@ -523,7 +522,7 @@
 }
 .feedback-row.kind-focus { border-left: 3px solid var(--warn); }
 .feedback-row.kind-missed { border-left: 3px solid var(--accent); }
-.feedback-row.kind-gap { border-left: 3px solid var(--danger); }
+.feedback-row.kind-weak { border-left: 3px solid var(--warn); }
 .feedback-tick {
   width: 18px;
   height: 18px;
@@ -561,7 +560,7 @@
 }
 .feedback-tag.t-focus { background: var(--warn-soft); color: #7a5a20; }
 .feedback-tag.t-missed { background: var(--accent-softer); color: var(--accent); }
-.feedback-tag.t-gap { background: var(--danger-soft); color: var(--danger); }
+.feedback-tag.t-weak { background: var(--warn-soft); color: var(--warn); }
 .feedback-repeat { color: var(--danger); font-weight: 600; }
 .feedback-empty {
   font-size: 12.5px;

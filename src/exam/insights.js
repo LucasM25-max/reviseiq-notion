@@ -12,7 +12,29 @@ import { scheduleSave } from "../storage.js";
 
 export function ensureInsights() {
   if (!Array.isArray(store.state.insights)) store.state.insights = [];
-  return store.state.insights;
+  const list = store.state.insights;
+
+  /*
+   * Notes gaps no longer exist. Every question is written from the student's
+   * own notes, so "your notes do not cover this" was always wrong: the answer
+   * was in there and they missed it. Old notes-gap records are deleted, and
+   * anything else filed under the old kind becomes a plain weak spot.
+   */
+  let changed = false;
+  for (let i = list.length - 1; i >= 0; i--) {
+    const it = list[i];
+    if (!it || it.kind !== "gap") continue;
+    changed = true;
+    if (it.detail === "Your notes do not appear to cover this.") {
+      list.splice(i, 1);
+      continue;
+    }
+    it.kind = "weak";
+    it.key = String(it.key || "").replace(/^gap::/, "weak::");
+  }
+  if (changed) scheduleSave();
+
+  return list;
 }
 
 export function ensureTests() {
@@ -77,9 +99,6 @@ export function recordFromAttempt(attempt) {
   (r.missedContent || []).forEach((m) => {
     add(Object.assign({}, base, { kind: "missed", text: typeof m === "string" ? m : m.point || "", detail: typeof m === "string" ? "" : m.why || "" }));
   });
-  (r.notesGaps || []).forEach((g) => {
-    add(Object.assign({}, base, { kind: "gap", text: typeof g === "string" ? g : g.point || "", detail: "Your notes do not appear to cover this." }));
-  });
   (r.questions || []).forEach((q) => {
     (q.missedPoints || []).forEach((p) => {
       add(
@@ -98,7 +117,7 @@ export function recordFromAttempt(attempt) {
 export function openInsights(filter) {
   const list = ensureInsights().filter((i) => !i.resolvedAt);
   const rows = filter && filter.pageId ? list.filter((i) => i.pageId === filter.pageId) : list;
-  const kinds = { focus: 0, gap: 1, missed: 2 };
+  const kinds = { focus: 0, weak: 1, missed: 2 };
   return rows
     .slice()
     .sort((a, b) => {

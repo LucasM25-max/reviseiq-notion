@@ -344,11 +344,10 @@ export function buildKnowledgeMarkingPrompt(cfg) {
     "  that cost the marks, and one concrete action for today. Never return a focus area that would apply to",
     "  any student; drop it instead.",
     "- missedContent: the specific points of knowledge absent across the whole script.",
-    notes
-      ? "- notesGaps: points the mark scheme expected which are genuinely absent from the student's own notes,\n" +
-        "  supplied below. Quote the closest line of their notes, or say the notes do not touch it. If the notes\n" +
-        "  do cover it and they simply did not use it, that belongs in focus areas instead."
-      : "- notesGaps: points the mark scheme expected which their notes do not appear to contain.",
+    "",
+    "Every question here was written from the student's own notes, so the answer is always somewhere in them.",
+    "Never tell the student their notes are missing something and never speculate about what their notes contain.",
+    "If they knew it but did not say it, that is a focus area; if they did not know it, that is missed content.",
     "- overallComment: two or three sentences, direct and specific, no praise padding. It must name real",
     "  content, not describe the performance in general terms.",
     "",
@@ -378,7 +377,7 @@ export function buildKnowledgeMarkingPrompt(cfg) {
     "Topic page: " + (cfg.pageTitle || "Untitled"),
     "",
     blocks.join("\n\n---\n\n"),
-    notes ? "\nTHE STUDENT'S OWN REVISION NOTES (use these only to judge notesGaps)" : "",
+    notes ? "\nTHE NOTES THESE QUESTIONS WERE WRITTEN FROM (use them to judge what should have been known)" : "",
     notes ? "--- NOTES START ---\n" + notes + "\n--- NOTES END ---" : ""
   ]
     .filter((l) => l !== "")

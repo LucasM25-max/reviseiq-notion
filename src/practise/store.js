@@ -136,15 +136,6 @@ export function recordPractiseInsights(attempt) {
     addInsight(Object.assign({}, base, { kind: "missed", text: typeof m === "string" ? m : m.point || "" }));
   });
 
-  (r.notesGaps || []).forEach((g) => {
-    addInsight(
-      Object.assign({}, base, {
-        kind: "gap",
-        text: typeof g === "string" ? g : g.point || "",
-        detail: "Your notes do not appear to cover this."
-      })
-    );
-  });
 
   // Points missed on individual questions, which are the most concrete of all.
   ((r.knowledge && r.knowledge.questions) || []).forEach((q) => {

@@ -98,6 +98,9 @@ export function renderBlock(block, numberIndex) {
     case "table":
       inner = renderTableBlock(block);
       break;
+    case "timeline":
+      inner = renderTimelineBlock(block);
+      break;
     case "toggle":
       inner =
         '<div class="toggle-row"><div class="toggle-arrow' +
@@ -183,6 +186,47 @@ export function renderBlock(block, numberIndex) {
     inner +
     "</div></div>"
   );
+}
+
+/*
+ * A timeline: dated entries down a single rail.
+ *
+ * A bullet list loses the dates and a table forces every entry into the same
+ * width, which is wrong when one event needs a clause and the next needs three
+ * sentences. Here the date and the headline sit on one line and the detail runs
+ * underneath at full width, so a dense chronology stays readable.
+ */
+export function renderTimelineBlock(block) {
+  const items = Array.isArray(block.items) ? block.items : [];
+  let html = '<div class="b-timeline" data-tl-block="' + block.id + '">';
+
+  items.forEach((it) => {
+    html +=
+      '<div class="tl-item" data-tl-item="' + it.id + '">' +
+      '<div class="tl-marker"><span class="tl-dot"></span></div>' +
+      '<div class="tl-body">' +
+      '<div class="tl-head">' +
+      '<div class="tl-date" contenteditable="true" data-tl-field="date" data-placeholder="Date">' +
+      sanitizeHtmlFragment(it.date || "") +
+      "</div>" +
+      '<div class="tl-title" contenteditable="true" data-tl-field="title" data-placeholder="What happened">' +
+      sanitizeHtmlFragment(it.title || "") +
+      "</div>" +
+      '<button type="button" class="tl-del" data-tl-del="' + it.id + '" title="Remove this entry">' +
+      ui("close", 12, 2.2) +
+      "</button>" +
+      "</div>" +
+      '<div class="tl-detail" contenteditable="true" data-tl-field="detail" data-placeholder="Detail \u2014 cause, consequence, figures\u2026">' +
+      sanitizeHtmlFragment(it.detail || "") +
+      "</div>" +
+      "</div></div>";
+  });
+
+  html +=
+    '<button type="button" class="tl-add" data-tl-add="' + block.id + '">' +
+    ui("plus", 12, 2.2) +
+    " Add entry</button></div>";
+  return html;
 }
 
 export function renderTableBlock(block) {

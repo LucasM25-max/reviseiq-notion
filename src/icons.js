@@ -117,6 +117,7 @@ const UI_PATHS = {
   code: '<polyline points="9 8 5 12 9 16"/><polyline points="15 8 19 12 15 16"/>',
   table: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 10h17M3.5 15h17M9.5 5v14"/>',
   divider: '<path d="M4 12h16"/>',
+  timeline: '<path d="M6 4v16"/><circle cx="6" cy="8" r="1.9"/><circle cx="6" cy="16.4" r="1.9"/><path d="M10.4 8H20M10.4 16.4H17.4"/>',
   flag: '<path d="M6 20.5V3.8"/><path d="M6 4.4h9.6l-1.9 3.6 1.9 3.6H6"/>',
   target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/>',
   stopwatch: '<circle cx="12" cy="13.6" r="7.2"/><path d="M12 10v3.6l2.3 1.4"/><path d="M9.7 3h4.6M12 3v2.5"/><path d="m18.6 7 1.3-1.3"/>',
