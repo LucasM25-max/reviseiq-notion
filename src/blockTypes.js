@@ -1,5 +1,5 @@
 // Catalogue of insertable block types (used by the slash menu).
-// `aliases` are extra search terms so /toggle still finds the flashcard block.
+// `aliases` are extra search terms, so /definition finds the key term block.
 import { ui } from "./icons.js";
 
 export const BLOCK_TYPES = [
@@ -11,16 +11,51 @@ export const BLOCK_TYPES = [
   { type: "numbered", icon: ui("numbered", 16), title: "Numbered list", desc: "A numbered item", aliases: "ordered list" },
   { type: "todo", icon: ui("todo", 16), title: "To-do", desc: "Checklist item", aliases: "task checkbox" },
   {
+    type: "definition",
+    icon: ui("keyTerm", 16),
+    title: "Key term",
+    desc: "Term and meaning \u2014 becomes a flashcard",
+    aliases: "definition flashcard vocabulary glossary term card recall meaning"
+  },
+  {
     type: "toggle",
-    icon: ui("flashcard", 16),
-    title: "Flashcard",
-    desc: "Question now, answer hidden \u2014 used in Revise",
-    aliases: "toggle card quiz recall question answer revise"
+    icon: ui("toggle", 16),
+    title: "Toggle",
+    desc: "Hide detail behind a heading",
+    aliases: "collapse fold details accordion hidden"
   },
   { type: "quote", icon: ui("quote", 16), title: "Quote", desc: "Highlighted quote", aliases: "citation" },
   { type: "callout", icon: ui("list", 16), title: "Callout", desc: "Note with an icon", aliases: "note info" },
   { type: "code", icon: ui("code", 16), title: "Code", desc: "Code block", aliases: "snippet" },
   { type: "table", icon: ui("table", 16), title: "Table", desc: "Simple grid table", aliases: "grid" },
+  {
+    type: "comparison",
+    icon: ui("compare", 16),
+    title: "Comparison",
+    desc: "Two things side by side, point by point",
+    aliases: "compare versus contrast columns differences similarities"
+  },
+  {
+    type: "process",
+    icon: ui("steps", 16),
+    title: "Process",
+    desc: "Numbered stages, each with why it matters",
+    aliases: "steps method sequence procedure how stages"
+  },
+  {
+    type: "source",
+    icon: ui("quote", 16),
+    title: "Source",
+    desc: "Quotation with attribution and your reading of it",
+    aliases: "quotation evidence extract provenance interpretation"
+  },
+  {
+    type: "statistic",
+    icon: ui("chart", 16),
+    title: "Key figure",
+    desc: "One number that matters, with context",
+    aliases: "statistic number data figure stat percentage"
+  },
   {
     type: "timeline",
     icon: ui("timeline", 16),

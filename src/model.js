@@ -12,6 +12,26 @@ export function newTimelineItem() {
   return { id: uid(), date: "", title: "", detail: "" };
 }
 
+/** One paired row on a comparison block. */
+export function newComparisonRow() {
+  return { id: uid(), left: "", right: "" };
+}
+
+/** One stage on a process block. */
+export function newProcessStep() {
+  return { id: uid(), text: "", why: "" };
+}
+
+/*
+ * Blocks whose content is a list of repeated items, and the factory for one.
+ * The editor uses this to add and remove items generically.
+ */
+export const ITEM_BLOCKS = {
+  timeline: { key: "items", make: newTimelineItem, label: "entry" },
+  comparison: { key: "rows", make: newComparisonRow, label: "pair" },
+  process: { key: "steps", make: newProcessStep, label: "step" }
+};
+
 export function newBlock(type) {
   const b = { id: uid(), type };
   switch (type) {
@@ -45,6 +65,31 @@ export function newBlock(type) {
     case "timeline":
       // Two empty entries: enough to show the shape without looking cluttered.
       b.items = [newTimelineItem(), newTimelineItem()];
+      break;
+    case "definition":
+      // Term and meaning. This block is also a flashcard.
+      b.term = "";
+      b.definition = "";
+      b.example = "";
+      break;
+    case "comparison":
+      b.leftLabel = "";
+      b.rightLabel = "";
+      b.rows = [newComparisonRow(), newComparisonRow()];
+      break;
+    case "process":
+      b.steps = [newProcessStep(), newProcessStep()];
+      break;
+    case "source":
+      b.quote = "";
+      b.attribution = "";
+      b.date = "";
+      b.comment = "";
+      break;
+    case "statistic":
+      b.value = "";
+      b.label = "";
+      b.context = "";
       break;
     case "toggle":
       b.summary = "";
@@ -91,6 +136,8 @@ export function createDefaultState() {
     activePageId: null,
     expanded: {},
     srs: {},
+    // The flashcard library. Cards used to be toggle blocks in the notes.
+    cards: {},
     reviewLog: {},
     // Mock exam attempts, keyed by id, and the examiner feedback kept from them.
     tests: {},
@@ -101,6 +148,22 @@ export function createDefaultState() {
     // Revision planner: settings, generated schedule, and what you ticked off.
     plan: {}
   };
+}
+
+function fixFields(b, names) {
+  names.forEach((n) => {
+    if (typeof b[n] !== "string") b[n] = "";
+  });
+}
+
+function fixItems(list, names, make) {
+  let items = Array.isArray(list) ? list.filter((it) => it && typeof it === "object") : [];
+  items.forEach((it) => {
+    if (!it.id) it.id = uid();
+    fixFields(it, names);
+  });
+  if (!items.length) items = [make()];
+  return items;
 }
 
 /* Older saves stored emoji icons; convert them to the custom icon set. */
@@ -114,6 +177,16 @@ function migrateBlockIcons(blocks) {
       migrateBlockIcons(b.children);
     }
     if (b.type === "toggle") migrateBlockIcons(b.children);
+    if (b.type === "definition") fixFields(b, ["term", "definition", "example"]);
+    if (b.type === "source") fixFields(b, ["quote", "attribution", "date", "comment"]);
+    if (b.type === "statistic") fixFields(b, ["value", "label", "context"]);
+    if (b.type === "comparison") {
+      fixFields(b, ["leftLabel", "rightLabel"]);
+      b.rows = fixItems(b.rows, ["left", "right"], newComparisonRow);
+    }
+    if (b.type === "process") {
+      b.steps = fixItems(b.steps, ["text", "why"], newProcessStep);
+    }
     if (b.type === "timeline") {
       if (!Array.isArray(b.items)) b.items = [newTimelineItem()];
       b.items = b.items.filter((it) => it && typeof it === "object");
@@ -174,6 +247,8 @@ export function normalizeState(obj) {
       if (typeof obj.activePageId === "string") s.activePageId = obj.activePageId;
       if (obj.expanded && typeof obj.expanded === "object") s.expanded = obj.expanded;
       if (obj.srs && typeof obj.srs === "object") s.srs = obj.srs;
+      if (obj.cards && typeof obj.cards === "object") s.cards = obj.cards;
+      if (obj.cardsMigrated) s.cardsMigrated = obj.cardsMigrated;
       if (obj.reviewLog && typeof obj.reviewLog === "object") s.reviewLog = obj.reviewLog;
       if (obj.tests && typeof obj.tests === "object") s.tests = obj.tests;
       if (Array.isArray(obj.insights)) s.insights = obj.insights;

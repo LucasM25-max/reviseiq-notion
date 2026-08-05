@@ -1,12 +1,18 @@
 // App entry point: load saved data, wire events, paint the first screen.
 import { store, getPage } from "./state.js";
-import { loadState, initAutosave } from "./storage.js";
+import { loadState, initAutosave, scheduleSave } from "./storage.js";
 import { renderSidebar } from "./render/sidebar.js";
 import { renderMain, renderBlocksOnly } from "./render/main.js";
 import { initGlobalDismiss, setRerenderMain } from "./overlays.js";
 import { initMainEvents } from "./events/mainEvents.js";
 import { initSidebarEvents } from "./events/sidebarEvents.js";
-import { setFlashcardsCloseHandler, setFlashcardsRerender, startFlashcards } from "./render/flashcards.js";
+import {
+  setFlashcardsCloseHandler,
+  setFlashcardsRerender,
+  openFlashcardsLibrary,
+  initFlashcardsEvents
+} from "./render/flashcards.js";
+import { migrateNoteCards } from "./cards.js";
 import { setTestCloseHandler } from "./exam/session.js";
 import { setQuizCloseHandler } from "./quiz/session.js";
 import { setPractiseCloseHandler } from "./practise/session.js";
@@ -51,6 +57,7 @@ function boot() {
     renderMain();
   });
   initGlobalDismiss();
+  initFlashcardsEvents();
   initMainEvents();
   initSidebarEvents();
   initMobileEvents();
@@ -58,6 +65,10 @@ function boot() {
   registerServiceWorker();
 
   loadState();
+
+  // Cards used to be toggle blocks in the notes. Move any that are still
+  // there into the flashcard library, keeping their review history.
+  if (migrateNoteCards()) scheduleSave();
 
   if (!store.state.activePageId || !getPage(store.state.activePageId)) {
     store.state.activePageId = store.state.rootPageIds[0] || null;
@@ -86,7 +97,7 @@ function applyLaunchShortcut() {
   if (!view) return;
   history.replaceState(null, "", location.pathname);
   if (view === "plan" || view === "today") openPlanView();
-  else if (view === "flashcards" || view === "revise") startFlashcards({ type: "all" });
+  else if (view === "flashcards" || view === "revise") openFlashcardsLibrary();
 }
 
 if (document.readyState === "loading") {

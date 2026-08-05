@@ -391,7 +391,9 @@ function todayHeader() {
     formatDateHuman(key) +
     '</span><button class="pl-inline-btn" data-plan-act="replan" title="Rebuild the schedule from scratch">' +
     ui("refresh", 12) +
-    'Re-plan</button><button class="pl-inline-btn" data-plan-act="settings">' +
+    'Re-plan</button><button class="pl-inline-btn" data-plan-act="pack" title="Print this week as one revision pack">' +
+    ui("printer", 12) +
+    'Weekly pack</button><button class="pl-inline-btn" data-plan-act="settings">' +
     ui("dots", 12) +
     "Time per day</button></div>"
   );

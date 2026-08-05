@@ -1,15 +1,33 @@
 /*
- * Flashcards: a revision session built on the flashcard (toggle) blocks.
+ * The Flashcards page: the card library, and the review session it launches.
+ *
+ * Cards come from the library (src/cards.js) - key term blocks in the notes,
+ * and cards written from things you got wrong. They are no longer scattered
+ * through the notes as toggle blocks, so this page is the one place to see
+ * what you own and what is due.
  *
  * On a phone this is a genuine full-screen overlay - nothing else on screen.
  * On a desktop it renders inside the main column with the sidebar still there,
  * so you never lose your place in the workspace.
  */
-import { escapeHtml, sanitizeHtmlFragment } from "../utils.js";
+import { escapeHtml, sanitizeHtmlFragment, daysUntil } from "../utils.js";
 import { getPage, store, setCurrentView } from "../state.js";
 import { iconImg, ui, DEFAULT_CALLOUT_ICON } from "../icons.js";
 import { scheduleSave } from "../storage.js";
-import { cardsForPage, allCards, dueCards, sortForRevision, gradeCard, nextIntervalLabel, todayKey } from "../srs.js";
+import {
+  cardsForPage,
+  allCards,
+  dueCards,
+  sortForRevision,
+  gradeCard,
+  nextIntervalLabel,
+  todayKey,
+  getRecord,
+  isDue,
+  subjectOf
+} from "../srs.js";
+import { deleteCard } from "../cards.js";
+import { showConfirmModal } from "../overlays.js";
 import { markTaskDone } from "../plan/store.js";
 
 /* Phones get the overlay; anything wider keeps the app around the session.
@@ -72,7 +90,9 @@ export function startFlashcards(scope, mode, task) {
     graded: {},
     task: task || null,
     overlay: isPhone(),
-    returnView: store.currentView === "flashcards" ? "plan" : store.currentView,
+    // The Flashcards page is now the card library, so finishing a session
+    // started there lands you back on it.
+    returnView: store.currentView,
     returnPageId: store.state.activePageId
   };
 
@@ -205,7 +225,7 @@ export function closeFlashcards(navigateToPageId, forceView) {
   session = null;
   scheduleSave();
   if (wasInView && !navigateToPageId) {
-    setCurrentView(back === "flashcards" ? "plan" : back);
+    setCurrentView(back);
   }
   onClose(navigateToPageId || null);
 }
@@ -269,9 +289,163 @@ function paint() {
   host.innerHTML = shellHtml();
 }
 
-/** The session markup. Used by the overlay and by renderFlashcardsView(). */
+/** The Flashcards page: the running session, or the library when idle. */
 export function renderFlashcardsView() {
-  return '<div id="flashcards-host" class="revise-host">' + shellHtml() + "</div>";
+  const body = session && !session.overlay ? shellHtml() : libraryHtml();
+  return '<div id="flashcards-host" class="revise-host">' + body + "</div>";
+}
+
+/** Opens the Flashcards page without starting a session. */
+export function openFlashcardsLibrary() {
+  setCurrentView("flashcards");
+  rerender();
+}
+
+/* ---------- the library ---------- */
+
+/** "Due", "Tomorrow", "In 6 days" or "New" for one card. */
+function whenLabel(cardId) {
+  const rec = getRecord(cardId);
+  if (!rec || !rec.due) return "New";
+  if (isDue(cardId)) return "Due";
+  const d = daysUntil(rec.due);
+  if (d === null) return "Scheduled";
+  if (d <= 1) return "Tomorrow";
+  return "In " + d + " days";
+}
+
+function cardRow(card) {
+  const due = isDue(card.id);
+  const rec = getRecord(card.id);
+  const state = due ? "is-due" : rec && rec.due ? "is-later" : "is-new";
+  return (
+    '<div class="lib-card ' + state + '" data-card-act="open" data-page-id="' + card.pageId + '">' +
+    '<div class="lib-body">' +
+    '<div class="lib-front">' + (card.question || "<em>Untitled card</em>") + "</div>" +
+    '<div class="lib-meta">' +
+    "<span>" + escapeHtml(card.pageTitle) + "</span>" +
+    '<span class="lib-dot">\u00b7</span>' +
+    "<span>" + (card.inNotes ? "Key term" : "From a mistake") + "</span>" +
+    "</div></div>" +
+    '<span class="lib-when ' + state + '">' + whenLabel(card.id) + "</span>" +
+    (card.inNotes
+      ? ""
+      : '<button class="lib-del" data-card-act="delete" data-card-id="' + card.id +
+        '" title="Delete this card">' + ui("trash", 14, 2) + "</button>") +
+    "</div>"
+  );
+}
+
+function libraryGroups(cards) {
+  const groups = {};
+  cards.forEach((c) => {
+    const subject = subjectOf(c.pageId) || getPage(c.pageId);
+    const id = subject ? subject.id : c.pageId;
+    if (!groups[id]) {
+      groups[id] = {
+        id: id,
+        title: subject ? subject.title || "Untitled" : "Untitled",
+        icon: subject ? subject.icon : null,
+        cards: []
+      };
+    }
+    groups[id].cards.push(c);
+  });
+  return Object.keys(groups)
+    .map((k) => groups[k])
+    .sort((a, b) => a.title.localeCompare(b.title));
+}
+
+function libraryHtml() {
+  const cards = allCards();
+  const due = cards.filter((c) => isDue(c.id)).length;
+
+  if (!cards.length) {
+    return (
+      '<div class="lib">' +
+      '<div class="lib-top"><div><h1 class="lib-title">Flashcards</h1>' +
+      '<div class="lib-sub">No cards yet</div></div></div>' +
+      '<div class="lib-empty">' +
+      '<div class="lib-empty-icon">' + iconImg("cards", 40) + "</div>" +
+      "<h2>Two ways to get cards</h2>" +
+      "<p>Add a <strong>Key term</strong> block to any page and it becomes a card straight away. " +
+      "Everything else is written for you: get something wrong in a quiz, practise or mock and " +
+      "ReviseIQ turns it into cards using your own notes.</p></div></div>"
+    );
+  }
+
+  let html =
+    '<div class="lib">' +
+    '<div class="lib-top">' +
+    '<div><h1 class="lib-title">Flashcards</h1><div class="lib-sub">' +
+    cards.length + " card" + (cards.length === 1 ? "" : "s") +
+    (due ? " \u00b7 " + due + " due now" : " \u00b7 nothing due") +
+    "</div></div>" +
+    '<div class="lib-actions">' +
+    (due
+      ? '<button class="lib-btn-primary" data-card-act="start-due">Review ' + due + " due</button>"
+      : "") +
+    '<button class="lib-btn" data-card-act="start-all">Review all</button>' +
+    "</div></div>";
+
+  libraryGroups(cards).forEach((g) => {
+    const gd = g.cards.filter((c) => isDue(c.id)).length;
+    html +=
+      '<div class="lib-group">' +
+      '<div class="lib-group-head">' +
+      iconImg(g.icon, 18) +
+      '<span class="lib-group-title">' + escapeHtml(g.title) + "</span>" +
+      '<span class="lib-group-count">' + g.cards.length + (gd ? " \u00b7 " + gd + " due" : "") + "</span>" +
+      '<button class="lib-group-btn" data-card-act="start-subject" data-page-id="' + g.id + '">Review</button>' +
+      "</div>";
+    g.cards
+      .slice()
+      .sort((a, b) => a.pageTitle.localeCompare(b.pageTitle))
+      .forEach((c) => {
+        html += cardRow(c);
+      });
+    html += "</div>";
+  });
+
+  return html + "</div>";
+}
+
+/*
+ * Library clicks. The session has its own listener; this one only runs when
+ * nothing is being reviewed, so the two never fight over a click.
+ */
+export function initFlashcardsEvents() {
+  document.addEventListener("click", (e) => {
+    if (session) return;
+    const btn = e.target.closest("[data-card-act]");
+    if (!btn) return;
+    const act = btn.dataset.cardAct;
+
+    if (act === "start-due") {
+      startFlashcards({ type: "all" }, "due");
+    } else if (act === "start-all") {
+      startFlashcards({ type: "all" }, "everything");
+    } else if (act === "start-subject") {
+      const pageId = btn.dataset.pageId;
+      const hasDue = cardsForPage(pageId).some((c) => isDue(c.id));
+      startFlashcards({ type: "page", pageId: pageId }, hasDue ? "due" : "everything");
+    } else if (act === "delete") {
+      e.stopPropagation();
+      const id = btn.dataset.cardId;
+      showConfirmModal({
+        title: "Delete this card?",
+        message: "It stops coming back for review. Your notes are not touched.",
+        confirmLabel: "Delete",
+        onConfirm: () => {
+          deleteCard(id);
+          scheduleSave();
+          rerender();
+        }
+      });
+    } else if (act === "open") {
+      onClose(btn.dataset.pageId);
+    }
+  });
 }
 
 function shellHtml() {
@@ -294,9 +468,6 @@ function shellHtml() {
     " / " +
     session.total +
     "</div>" +
-    '<button class="revise-close" data-revise-act="close" title="Finish (Esc)">' +
-    ui("close", 16, 2.2) +
-    "</button>" +
     "</div>" +
     '<div class="revise-progress"><div class="revise-progress-fill" style="width:' + progress + '%"></div></div>' +
     '<div class="revise-card">' +
@@ -317,6 +488,9 @@ function shellHtml() {
         gradeBtn("good", "Got it", card.id, "3") +
         "</div>"
       : '<div class="revise-hint">Try to answer out loud first, then reveal.</div>') +
+    (session.overlay
+      ? '<button class="revise-finish" data-revise-act="close">Finish for now</button>'
+      : "") +
     '<button class="revise-jump" data-revise-act="open-page" data-page-id="' +
     card.pageId +
     '">Open this page' +
@@ -352,9 +526,7 @@ function renderFinished() {
     "<span>" +
     escapeHtml(session.title) +
     "</span></div>" +
-    '<button class="revise-close" data-revise-act="close" title="Close (Esc)">' +
-    ui("close", 16, 2.2) +
-    "</button></div>" +
+    "</div>" +
     '<div class="revise-done">' +
     '<div class="revise-done-icon">' +
     iconImg(reviewed ? "trophy" : "check", 48) +
@@ -444,6 +616,52 @@ export function renderStatic(blocks) {
           html += "</tr>";
         });
         html += "</tbody></table>";
+        break;
+      case "timeline":
+        (b.items || []).forEach((it) => {
+          html +=
+            '<div class="rs-li"><span class="rs-marker">' +
+            (it.date || "\u2022") +
+            "</span><span>" +
+            (it.title || "") +
+            (it.detail ? " \u2014 " + it.detail : "") +
+            "</span></div>";
+        });
+        break;
+      case "definition":
+        html +=
+          '<div class="rs-sub"><div class="rs-sub-title">' + (b.term || "") + "</div><p>" +
+          (b.definition || "") + "</p>" +
+          (b.example ? "<p><em>" + b.example + "</em></p>" : "") +
+          "</div>";
+        break;
+      case "comparison":
+        html += '<table class="rs-table"><tbody><tr><td><strong>' +
+          (b.leftLabel || "") + "</strong></td><td><strong>" + (b.rightLabel || "") + "</strong></td></tr>";
+        (b.rows || []).forEach((r) => {
+          html += "<tr><td>" + (r.left || "") + "</td><td>" + (r.right || "") + "</td></tr>";
+        });
+        html += "</tbody></table>";
+        break;
+      case "process":
+        (b.steps || []).forEach((st, i) => {
+          html +=
+            '<div class="rs-li"><span class="rs-marker">' + (i + 1) + ".</span><span>" +
+            (st.text || "") + (st.why ? " \u2014 <em>" + st.why + "</em>" : "") + "</span></div>";
+        });
+        break;
+      case "source":
+        html +=
+          "<blockquote>" + (b.quote || "") + "</blockquote>" +
+          (b.attribution || b.date
+            ? "<p><em>" + (b.attribution || "") + (b.date ? ", " + b.date : "") + "</em></p>"
+            : "") +
+          (b.comment ? "<p>" + b.comment + "</p>" : "");
+        break;
+      case "statistic":
+        html +=
+          '<div class="rs-li"><span class="rs-marker">' + (b.value || "") + "</span><span>" +
+          (b.label || "") + (b.context ? " \u2014 " + b.context : "") + "</span></div>";
         break;
       case "toggle":
         html +=

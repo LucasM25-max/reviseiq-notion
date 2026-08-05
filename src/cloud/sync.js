@@ -33,7 +33,7 @@ const COMMIT_TIMEOUT_MS = 12000;
 const READ_TIMEOUT_MS = 15000;
 
 /* Meta documents: small singletons kept out of the page documents. */
-const META_KEYS = ["workspace", "srs", "insights", "plan"];
+const META_KEYS = ["workspace", "srs", "cards", "insights", "plan"];
 
 let ctx = null; // { uid, fb, base, revs, unsubs, applying }
 let flushTimer = null;
@@ -344,6 +344,8 @@ function metaPayload(key) {
     };
   }
   if (key === "srs") return { srs: s.srs || {}, reviewLog: s.reviewLog || {} };
+  // The flashcard library, which used to live inside the notes as toggles.
+  if (key === "cards") return { cards: s.cards || {}, cardsMigrated: s.cardsMigrated || null };
   if (key === "insights") return { insights: s.insights || [] };
   if (key === "plan") return { plan: s.plan || {} };
   return {};
@@ -359,6 +361,10 @@ function applyMetaPayload(key, data) {
   } else if (key === "srs") {
     if (data.srs && typeof data.srs === "object") s.srs = data.srs;
     if (data.reviewLog && typeof data.reviewLog === "object") s.reviewLog = data.reviewLog;
+  } else if (key === "cards") {
+    if (data.cards && typeof data.cards === "object") s.cards = data.cards;
+    // Once any device has migrated, no other device should do it again.
+    if (data.cardsMigrated) s.cardsMigrated = data.cardsMigrated;
   } else if (key === "insights") {
     if (Array.isArray(data.insights)) s.insights = data.insights;
   } else if (key === "plan") {

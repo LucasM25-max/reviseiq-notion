@@ -66,13 +66,56 @@ function blocksToText(blocks, out, depth) {
           if (line) out.push(line);
         });
         break;
+      case "definition": {
+        // Key terms are flashcards, so give the model both sides.
+        const term = stripHtml(b.term);
+        const meaning = stripHtml(b.definition);
+        const eg = stripHtml(b.example);
+        if (term || meaning) {
+          out.push("- " + [term, meaning].filter(Boolean).join(": ") + (eg ? " (e.g. " + eg + ")" : ""));
+        }
+        break;
+      }
+      case "comparison": {
+        const left = stripHtml(b.leftLabel) || "A";
+        const right = stripHtml(b.rightLabel) || "B";
+        out.push("\n" + left + " vs " + right + ":");
+        (b.rows || []).forEach((r) => {
+          const l = stripHtml(r.left);
+          const rr = stripHtml(r.right);
+          if (l || rr) out.push("- " + left + ": " + l + " | " + right + ": " + rr);
+        });
+        break;
+      }
+      case "process":
+        (b.steps || []).forEach((st, i) => {
+          const text = stripHtml(st.text);
+          const why = stripHtml(st.why);
+          if (text) out.push(i + 1 + ". " + text + (why ? " (" + why + ")" : ""));
+        });
+        break;
+      case "source": {
+        const quote = stripHtml(b.quote);
+        const who = [stripHtml(b.attribution), stripHtml(b.date)].filter(Boolean).join(", ");
+        if (quote) out.push("Source: \u201c" + quote + "\u201d" + (who ? " - " + who : ""));
+        const comment = stripHtml(b.comment);
+        if (comment) out.push("Reading of it: " + comment);
+        break;
+      }
+      case "statistic": {
+        const value = stripHtml(b.value);
+        const label = stripHtml(b.label);
+        const context = stripHtml(b.context);
+        if (value || label) out.push("- " + [value, label].filter(Boolean).join(" \u2014 ") + (context ? " (" + context + ")" : ""));
+        break;
+      }
       case "toggle": {
-        // Flashcards: the summary is the question, the children the answer.
+        // A toggle hides detail behind a heading; keep both.
         const q = stripHtml(b.summary);
-        if (q) out.push("\nQ: " + q);
+        if (q) out.push("\n" + q);
         const inner = [];
         blocksToText(b.children, inner, depth + 1);
-        if (inner.length) out.push("A: " + inner.join(" "));
+        if (inner.length) out.push(inner.join(" "));
         break;
       }
       case "image":

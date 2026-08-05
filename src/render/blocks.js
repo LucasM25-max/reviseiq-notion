@@ -101,6 +101,21 @@ export function renderBlock(block, numberIndex) {
     case "timeline":
       inner = renderTimelineBlock(block);
       break;
+    case "definition":
+      inner = renderDefinitionBlock(block);
+      break;
+    case "comparison":
+      inner = renderComparisonBlock(block);
+      break;
+    case "process":
+      inner = renderProcessBlock(block);
+      break;
+    case "source":
+      inner = renderSourceBlock(block);
+      break;
+    case "statistic":
+      inner = renderStatisticBlock(block);
+      break;
     case "toggle":
       inner =
         '<div class="toggle-row"><div class="toggle-arrow' +
@@ -110,7 +125,7 @@ export function renderBlock(block, numberIndex) {
         '">' +
         ui("chevron", 12, 2.6) +
         "</div>" +
-        '<div class="rt" contenteditable="true" data-placeholder="Flashcard question" style="flex:1;font-weight:600;">' +
+        '<div class="rt" contenteditable="true" data-placeholder="Toggle heading" style="flex:1;font-weight:600;">' +
         block.summary +
         "</div></div>" +
         (block.collapsed
@@ -125,7 +140,7 @@ export function renderBlock(block, numberIndex) {
                 block.id +
                 '">' +
                 ui("plus", 13, 2.2) +
-                " Write the answer</div></div>") +
+                " Add a block</div></div>") +
             "</div>");
       break;
     case "image":
@@ -227,6 +242,135 @@ export function renderTimelineBlock(block) {
     ui("plus", 12, 2.2) +
     " Add entry</button></div>";
   return html;
+}
+
+/*
+ * Key term. The one block that is also a flashcard: the term is the question,
+ * the meaning is the answer, and the example rides along on the back. Editing
+ * the block edits the card, so there is never a copy to keep in step.
+ */
+export function renderDefinitionBlock(block) {
+  return (
+    '<div class="b-def" data-fb-block="' + block.id + '">' +
+    '<div class="def-main">' +
+    '<div class="def-term" contenteditable="true" data-fb-field="term" data-placeholder="Key term">' +
+    sanitizeHtmlFragment(block.term || "") +
+    "</div>" +
+    '<span class="def-chip" title="This block is a flashcard">' +
+    ui("cards", 12, 2) +
+    "Flashcard</span>" +
+    "</div>" +
+    '<div class="def-meaning" contenteditable="true" data-fb-field="definition" data-placeholder="What it means, in your own words">' +
+    sanitizeHtmlFragment(block.definition || "") +
+    "</div>" +
+    '<div class="def-example" contenteditable="true" data-fb-field="example" data-placeholder="Example or where it comes up (optional)">' +
+    sanitizeHtmlFragment(block.example || "") +
+    "</div></div>"
+  );
+}
+
+/*
+ * Comparison. A table forces both sides into one column width; here each side
+ * gets its own column that wraps independently, and the pair stays aligned.
+ */
+export function renderComparisonBlock(block) {
+  const rows = Array.isArray(block.rows) ? block.rows : [];
+  let html =
+    '<div class="b-cmp" data-fb-block="' + block.id + '">' +
+    '<div class="cmp-head">' +
+    '<div class="cmp-label" contenteditable="true" data-fb-field="leftLabel" data-placeholder="First thing">' +
+    sanitizeHtmlFragment(block.leftLabel || "") +
+    "</div>" +
+    '<div class="cmp-label" contenteditable="true" data-fb-field="rightLabel" data-placeholder="Second thing">' +
+    sanitizeHtmlFragment(block.rightLabel || "") +
+    "</div></div>";
+
+  rows.forEach((r) => {
+    html +=
+      '<div class="cmp-row" data-fb-item="' + r.id + '">' +
+      '<div class="cmp-cell" contenteditable="true" data-fb-field="left" data-placeholder="Point">' +
+      sanitizeHtmlFragment(r.left || "") +
+      "</div>" +
+      '<div class="cmp-cell" contenteditable="true" data-fb-field="right" data-placeholder="Point">' +
+      sanitizeHtmlFragment(r.right || "") +
+      "</div>" +
+      '<button type="button" class="fb-del" data-fb-del="' + r.id + '" title="Remove this pair">' +
+      ui("close", 12, 2.2) +
+      "</button></div>";
+  });
+
+  return (
+    html +
+    '<button type="button" class="fb-add" data-fb-add="' + block.id + '">' +
+    ui("plus", 12, 2.2) +
+    " Add pair</button></div>"
+  );
+}
+
+/* Process. Numbered stages, each with an optional line on why it matters. */
+export function renderProcessBlock(block) {
+  const steps = Array.isArray(block.steps) ? block.steps : [];
+  let html = '<div class="b-proc" data-fb-block="' + block.id + '">';
+
+  steps.forEach((st, i) => {
+    html +=
+      '<div class="proc-step" data-fb-item="' + st.id + '">' +
+      '<div class="proc-num">' + (i + 1) + "</div>" +
+      '<div class="proc-body">' +
+      '<div class="proc-text" contenteditable="true" data-fb-field="text" data-placeholder="What you do at this stage">' +
+      sanitizeHtmlFragment(st.text || "") +
+      "</div>" +
+      '<div class="proc-why" contenteditable="true" data-fb-field="why" data-placeholder="Why it matters (optional)">' +
+      sanitizeHtmlFragment(st.why || "") +
+      "</div></div>" +
+      '<button type="button" class="fb-del" data-fb-del="' + st.id + '" title="Remove this step">' +
+      ui("close", 12, 2.2) +
+      "</button></div>";
+  });
+
+  return (
+    html +
+    '<button type="button" class="fb-add" data-fb-add="' + block.id + '">' +
+    ui("plus", 12, 2.2) +
+    " Add step</button></div>"
+  );
+}
+
+/* Source. Quotation, where it came from, and what you make of it. */
+export function renderSourceBlock(block) {
+  return (
+    '<div class="b-src" data-fb-block="' + block.id + '">' +
+    '<div class="src-quote" contenteditable="true" data-fb-field="quote" data-placeholder="Quote the source">' +
+    sanitizeHtmlFragment(block.quote || "") +
+    "</div>" +
+    '<div class="src-meta">' +
+    '<div class="src-attr" contenteditable="true" data-fb-field="attribution" data-placeholder="Who wrote or said it">' +
+    sanitizeHtmlFragment(block.attribution || "") +
+    "</div>" +
+    '<div class="src-date" contenteditable="true" data-fb-field="date" data-placeholder="When">' +
+    sanitizeHtmlFragment(block.date || "") +
+    "</div></div>" +
+    '<div class="src-comment" contenteditable="true" data-fb-field="comment" data-placeholder="What it shows \u2014 purpose, reliability, how you would use it">' +
+    sanitizeHtmlFragment(block.comment || "") +
+    "</div></div>"
+  );
+}
+
+/* Key figure. One number, big, with the context that makes it usable. */
+export function renderStatisticBlock(block) {
+  return (
+    '<div class="b-stat" data-fb-block="' + block.id + '">' +
+    '<div class="stat-value" contenteditable="true" data-fb-field="value" data-placeholder="104">' +
+    sanitizeHtmlFragment(block.value || "") +
+    "</div>" +
+    '<div class="stat-side">' +
+    '<div class="stat-label" contenteditable="true" data-fb-field="label" data-placeholder="What this number is">' +
+    sanitizeHtmlFragment(block.label || "") +
+    "</div>" +
+    '<div class="stat-context" contenteditable="true" data-fb-field="context" data-placeholder="Source, year, or what it compares with">' +
+    sanitizeHtmlFragment(block.context || "") +
+    "</div></div></div>"
+  );
 }
 
 export function renderTableBlock(block) {

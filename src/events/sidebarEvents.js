@@ -9,11 +9,12 @@ import {
   openCalendarView,
   openPlanView
 } from "../pages.js";
-import { startFlashcards } from "../render/flashcards.js";
+import { openFlashcardsLibrary } from "../render/flashcards.js";
 import { downloadBackup, readBackupFile, applyRestore, summarise } from "../backup.js";
 import { showConfirmModal, showPageMenu } from "../overlays.js";
 import { renderSidebar } from "../render/sidebar.js";
 import { renderMain } from "../render/main.js";
+import { openPrintDialog } from "../print.js";
 
 export function initSidebarEvents() {
   const sidebarTree = document.getElementById("sidebar-tree");
@@ -42,6 +43,7 @@ export function initSidebarEvents() {
           const el = document.getElementById("page-title");
           if (el) el.focus();
         },
+        onPrint: (id) => openPrintDialog(id),
         onDelete: (id) => confirmDeletePage(id)
       });
       return;
@@ -62,6 +64,7 @@ export function initSidebarEvents() {
         const el = document.getElementById("page-title");
         if (el) el.focus();
       },
+      onPrint: (id) => openPrintDialog(id),
       onDelete: (id) => confirmDeletePage(id)
     });
   });
@@ -74,7 +77,7 @@ export function initSidebarEvents() {
   document.getElementById("btn-new-subject").addEventListener("click", () => createSubjectPage(""));
   document.getElementById("today-nav-btn").addEventListener("click", () => openPlanView());
   document.getElementById("calendar-nav-btn").addEventListener("click", () => openCalendarView());
-  document.getElementById("revise-nav-btn").addEventListener("click", () => startFlashcards({ type: "all" }));
+  document.getElementById("revise-nav-btn").addEventListener("click", () => openFlashcardsLibrary());
 
   document.getElementById("btn-export").addEventListener("click", () => downloadBackup());
 

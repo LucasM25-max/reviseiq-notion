@@ -15,19 +15,18 @@
  * 2. One gap should become several small cards, not one broad one. Small cards
  *    are what spaced repetition actually works on.
  *
- * Cards are ordinary flashcard (toggle) blocks appended to the page under one
- * heading, so they behave exactly like hand-written ones.
+ * Cards are written straight into the flashcard library (src/cards.js) and
+ * show up on the Flashcards page. They used to be appended to the notes as
+ * toggle blocks, which buried the notes under cards nobody asked to read.
  */
 import { getPage } from "../state.js";
 import { escapeHtml } from "../utils.js";
-import { newBlock } from "../model.js";
 import { scheduleSave } from "../storage.js";
+import { createCard, ownedFronts } from "../cards.js";
 import { authHeaders } from "../cloud/auth.js";
 import { collectNotes } from "../exam/notes.js";
 import { resurfaceCard } from "../srs.js";
 import { BANNED_CARD_PATTERNS, MAX_CARDS_PER_RUN, MAX_CARD_NOTE_CHARS } from "./quizPrompt.js";
-
-export const CARDS_HEADING = "Flashcards from your mistakes";
 
 function plain(html) {
   return String(html || "")
@@ -46,34 +45,6 @@ function squash(value) {
     .trim();
 }
 
-/* Every card already on the page, keyed by its front, so a repeated mistake
- * resurfaces the card the student owns instead of spawning a near duplicate. */
-function existingCards(blocks, into) {
-  (blocks || []).forEach((b) => {
-    if (b.type === "toggle") {
-      const key = squash(b.summary);
-      if (key && !into.has(key)) into.set(key, b.id);
-    }
-    if (Array.isArray(b.children)) existingCards(b.children, into);
-  });
-  return into;
-}
-
-function findCardsHeading(blocks) {
-  const want = plain(CARDS_HEADING);
-  for (let i = 0; i < blocks.length; i++) {
-    if (blocks[i].type === "heading2" && plain(blocks[i].content) === want) return i;
-  }
-  return -1;
-}
-
-/*
- * The passages of the notes the mistakes actually touch.
- *
- * Sending the whole page would be wasteful and would dilute the material the
- * model needs, so paragraphs are scored on how much vocabulary they share with
- * the misses and the best ones are sent in their original order.
- */
 function notesExcerpt(pageId, includeSubpages, misses) {
   let text = "";
   try {
@@ -150,20 +121,12 @@ function fallbackCards(misses) {
     .filter((c) => c.front && c.back);
 }
 
-function buildCardBlock(card, attemptId) {
-  const block = newBlock("toggle");
-  block.summary = escapeHtml(card.front);
-  const answer = newBlock("paragraph");
+/** The back of a card: the answer, with the topic it belongs to underneath. */
+function backHtml(card) {
   const label = card.topic
     ? "<br><em>" + escapeHtml(card.topic) + (card.kind === "skill" ? " \u00b7 skill" : "") + "</em>"
     : "";
-  answer.content = escapeHtml(card.back) + label;
-  block.children = [answer];
-  block.collapsed = true;
-  // Provenance, so a card can point back at the attempt that produced it.
-  if (attemptId) block.fromAttempt = attemptId;
-  if (card.topic) block.cardTopic = card.topic;
-  return block;
+  return escapeHtml(card.back) + label;
 }
 
 async function askGemini(cfg, notes, existing) {
@@ -206,7 +169,7 @@ export async function generateFlashcardsFromMisses(cfg) {
   const empty = { made: 0, resurfaced: 0, aiUsed: false, error: null, cardIds: [] };
   if (!page || !misses.length) return empty;
 
-  const owned = existingCards(page.blocks, new Map());
+  const owned = ownedFronts(cfg.pageId);
   const notes = notesExcerpt(cfg.pageId, cfg.includeSubpages, misses);
 
   let cards = [];
@@ -240,21 +203,21 @@ export async function generateFlashcardsFromMisses(cfg) {
     }
     if (!cardIsUseful(c)) return;
     if (fresh.length >= MAX_CARDS_PER_RUN) return;
-    const block = buildCardBlock(c, cfg.attemptId);
-    fresh.push(block);
-    cardIds.push(block.id);
+    const made = createCard({
+      pageId: cfg.pageId,
+      front: c.front,
+      back: backHtml(c),
+      topic: c.topic || "",
+      source: "mistake",
+      fromAttempt: cfg.attemptId || null
+    });
+    if (!made) return;
+    fresh.push(made);
+    cardIds.push(made.id);
   });
 
   if (!fresh.length && !resurfaced) return Object.assign({}, empty, { aiUsed: aiUsed, error: error });
 
-  if (fresh.length) {
-    if (findCardsHeading(page.blocks) === -1) {
-      const heading = newBlock("heading2");
-      heading.content = escapeHtml(CARDS_HEADING);
-      page.blocks.push(heading);
-    }
-    fresh.forEach((b) => page.blocks.push(b));
-  }
   scheduleSave();
 
   return {

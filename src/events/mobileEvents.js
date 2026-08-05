@@ -1,7 +1,7 @@
 // Drawer behaviour for the mobile layout. On desktop none of this fires
 // because the top bar and scrim are display:none and the sidebar is static.
 import { openPlanView } from "../pages.js";
-import { startFlashcards } from "../render/flashcards.js";
+import { openFlashcardsLibrary } from "../render/flashcards.js";
 
 const MOBILE_MAX = 860;
 
@@ -35,7 +35,7 @@ export function initMobileEvents() {
 
   document.getElementById("mobile-revise-btn").addEventListener("click", () => {
     closeDrawer();
-    startFlashcards({ type: "all" });
+    openFlashcardsLibrary();
   });
 
   scrim.addEventListener("click", () => closeDrawer());

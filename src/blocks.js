@@ -1,6 +1,6 @@
 // Block-level operations on the active page's block tree.
 import { findContainer, findBlockById } from "./state.js";
-import { newBlock } from "./model.js";
+import { newBlock, ITEM_BLOCKS } from "./model.js";
 import { uid } from "./utils.js";
 
 export function insertBlockAfter(page, afterBlockId, block) {
@@ -49,7 +49,9 @@ export function duplicateBlock(page, blockId) {
   (function assignNewIds(bl) {
     bl.id = uid();
     if ((bl.type === "toggle" || bl.type === "callout") && Array.isArray(bl.children)) bl.children.forEach(assignNewIds);
-    if (bl.type === "timeline" && Array.isArray(bl.items)) bl.items.forEach((it) => (it.id = uid()));
+    // Timeline entries, comparison pairs and process steps carry their own ids.
+    const spec = ITEM_BLOCKS[bl.type];
+    if (spec && Array.isArray(bl[spec.key])) bl[spec.key].forEach((it) => (it.id = uid()));
   })(clone);
   c.arr.splice(c.idx + 1, 0, clone);
 }

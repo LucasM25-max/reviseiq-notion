@@ -1,11 +1,16 @@
 // Spaced repetition engine.
 //
-// Every toggle block in the workspace is a flashcard: the summary is the
-// question, the hidden children are the answer. Review scheduling state lives
-// in state.srs, keyed by block id, so notes and scheduling stay in one save.
-import { store, getPage, getAllDescendantIds, getAncestors } from "./state.js";
+// What a card IS lives in src/cards.js: a key term block in the notes, or a
+// stored card written from something you got wrong. This file only decides
+// when each one comes back. Scheduling state lives in state.srs keyed by card
+// id, so notes and scheduling stay in one save.
+import { store, getPage, getAncestors } from "./state.js";
 import { pad2, daysUntil } from "./utils.js";
 import { hasEvidence } from "./evidence.js";
+import { cardsForPage, allCards } from "./cards.js";
+
+// Re-exported so callers have one place to ask for cards and their schedule.
+export { cardsForPage, allCards };
 
 /* Interval ladder in days. Index -1 means "new / relearning". */
 export const STEPS = [1, 3, 7, 16, 35];
@@ -136,46 +141,6 @@ export function nextIntervalLabel(grade, cardId) {
 }
 
 /* ---------- collecting cards ---------- */
-
-function walkBlocks(blocks, page, out) {
-  if (!Array.isArray(blocks)) return;
-  blocks.forEach((b) => {
-    if (!b || b.type !== "toggle") return;
-    const question = String(b.summary || "").replace(/<[^>]+>/g, "").trim();
-    if (question) {
-      out.push({
-        id: b.id,
-        pageId: page.id,
-        pageTitle: page.title || "Untitled",
-        pageIcon: page.icon,
-        question: b.summary || "",
-        answer: b.children || []
-      });
-    }
-    walkBlocks(b.children, page, out);
-  });
-}
-
-/** Cards on one page plus all of its subpages. */
-export function cardsForPage(pageId) {
-  const out = [];
-  const ids = [pageId].concat(getAllDescendantIds(pageId));
-  ids.forEach((id) => {
-    const p = getPage(id);
-    if (p) walkBlocks(p.blocks, p, out);
-  });
-  return out;
-}
-
-/** Every card in the workspace. */
-export function allCards() {
-  const out = [];
-  for (const id in store.state.pages) {
-    const p = store.state.pages[id];
-    walkBlocks(p.blocks, p, out);
-  }
-  return out;
-}
 
 /** Days until the nearest exam of the subject a page belongs to. */
 function examUrgency(pageId) {

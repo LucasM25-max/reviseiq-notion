@@ -1,6 +1,6 @@
 // All interaction wiring for the main editor panel.
 import { store, getPage, findBlockById, findContainer } from "../state.js";
-import { newBlock, newTimelineItem } from "../model.js";
+import { newBlock, newTimelineItem, ITEM_BLOCKS } from "../model.js";
 import { escapeHtml, sanitizeHtmlFragment, compressImageFile, extractYouTubeId } from "../utils.js";
 import {
   insertBlockAfter,
@@ -25,7 +25,7 @@ import {
   removeToolbar
 } from "../overlays.js";
 import { startFlashcards, setFlashcardsNextTask } from "../render/flashcards.js";
-import { openPrintDialog } from "../print.js";
+import { openPrintDialog, openWeeklyPackDialog } from "../print.js";
 import {
   togglePlanSettings,
   togglePlanTimeline,
@@ -70,6 +70,45 @@ import {
   removeExamDate
 } from "../pages.js";
 import { focusBlock, focusBlockAtOffset, isCursorAtStart, splitAtCursor, normalizeEmptyContent } from "../focus.js";
+
+/* Puts the caret at the end of one field of the newer block types. */
+function focusFbField(el) {
+  if (el) focusTitleEnd(el);
+}
+
+/*
+ * Resolves a field element back to what it edits: the block itself for a key
+ * term or a source, or one pair/step for the blocks that hold a list.
+ */
+function fbTarget(page, el) {
+  const wrapEl = el.closest("[data-fb-block]");
+  const block = wrapEl && page ? findBlockById(page.blocks, wrapEl.dataset.fbBlock) : null;
+  if (!block) return null;
+  const spec = ITEM_BLOCKS[block.type];
+  const itemEl = el.closest("[data-fb-item]");
+  let obj = block;
+  if (spec && itemEl) {
+    const list = Array.isArray(block[spec.key]) ? block[spec.key] : [];
+    obj = list.find((x) => x.id === itemEl.dataset.fbItem) || null;
+  }
+  return obj ? { block: block, obj: obj, wrapEl: wrapEl, itemEl: itemEl, spec: spec } : null;
+}
+
+/* Adds one pair/step/entry, either at the end or after the one you are in. */
+function fbAddItem(block, atIndex) {
+  const spec = ITEM_BLOCKS[block.type];
+  if (!spec) return null;
+  if (!Array.isArray(block[spec.key])) block[spec.key] = [];
+  const item = spec.make();
+  if (atIndex === undefined || atIndex === null || atIndex < 0) block[spec.key].push(item);
+  else block[spec.key].splice(atIndex + 1, 0, item);
+  return item;
+}
+
+/* The first field of a freshly added entry, so the caret can land in it. */
+function firstFieldOf(itemId) {
+  return document.querySelector('[data-fb-item="' + itemId + '"] [data-fb-field]');
+}
 
 /* Puts the caret in one field of one timeline entry. */
 function focusTimelineField(itemId, field) {
@@ -364,6 +403,32 @@ export function initMainEvents() {
       return;
     }
 
+    const fbAdd = e.target.closest("[data-fb-add]");
+    if (fbAdd) {
+      const fbb = findBlockById(page.blocks, fbAdd.dataset.fbAdd);
+      const item = fbb ? fbAddItem(fbb) : null;
+      if (item) {
+        renderBlocksOnly();
+        focusFbField(firstFieldOf(item.id));
+        scheduleSave();
+      }
+      return;
+    }
+    const fbDel = e.target.closest("[data-fb-del]");
+    if (fbDel) {
+      const fbWrap = fbDel.closest("[data-fb-block]");
+      const fbb2 = fbWrap ? findBlockById(page.blocks, fbWrap.dataset.fbBlock) : null;
+      const fbSpec = fbb2 ? ITEM_BLOCKS[fbb2.type] : null;
+      if (fbb2 && fbSpec && Array.isArray(fbb2[fbSpec.key])) {
+        const rest = fbb2[fbSpec.key].filter((x) => x.id !== fbDel.dataset.fbDel);
+        // The last one empties rather than leaving an empty block behind.
+        fbb2[fbSpec.key] = rest.length ? rest : [fbSpec.make()];
+        renderBlocksOnly();
+        scheduleSave();
+      }
+      return;
+    }
+
     const tlAdd = e.target.closest("[data-tl-add]");
     if (tlAdd) {
       const tlb = findBlockById(page.blocks, tlAdd.dataset.tlAdd);
@@ -495,6 +560,16 @@ export function initMainEvents() {
       return;
     }
 
+    if (t.matches("[data-fb-field]")) {
+      const target = fbTarget(page, t);
+      if (target) {
+        // Inline formatting is kept, so bold survives adding another entry.
+        target.obj[t.dataset.fbField] = sanitizeHtmlFragment(t.innerHTML);
+        scheduleSave();
+      }
+      return;
+    }
+
     if (t.matches("[data-tl-field]")) {
       const itemEl = t.closest("[data-tl-item]");
       const wrapEl = t.closest("[data-tl-block]");
@@ -576,6 +651,45 @@ export function initMainEvents() {
       t.blur();
       return;
     }
+    const fbField = t.closest ? t.closest("[data-fb-field]") : null;
+    if (fbField) {
+      // Enter walks the fields in order; at the last one it adds another entry
+      // on the list blocks, or drops you into a new paragraph underneath.
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        const wrapEl = fbField.closest("[data-fb-block]");
+        const fields = wrapEl ? Array.prototype.slice.call(wrapEl.querySelectorAll("[data-fb-field]")) : [];
+        const idx = fields.indexOf(fbField);
+        if (idx > -1 && idx < fields.length - 1) {
+          focusFbField(fields[idx + 1]);
+          return;
+        }
+        const target = fbTarget(page, fbField);
+        const block = target ? target.block : null;
+        if (!block || !page) return;
+        const spec = ITEM_BLOCKS[block.type];
+        if (spec) {
+          const list = Array.isArray(block[spec.key]) ? block[spec.key] : [];
+          const at = target.itemEl
+            ? list.findIndex((x) => x.id === target.itemEl.dataset.fbItem)
+            : list.length - 1;
+          const item = fbAddItem(block, at);
+          if (item) {
+            renderBlocksOnly();
+            focusFbField(firstFieldOf(item.id));
+            scheduleSave();
+          }
+        } else {
+          const nb = newBlock("paragraph");
+          insertBlockAfter(page, block.id, nb);
+          renderBlocksOnly();
+          focusBlock(nb.id, true);
+          scheduleSave();
+        }
+      }
+      return;
+    }
+
     const tlField = t.closest ? t.closest("[data-tl-field]") : null;
     if (tlField) {
       // Enter moves date -> what happened -> detail, then starts a new entry.
@@ -1083,6 +1197,10 @@ function handlePlanClick(e) {
     saveSetup(readSetupCard(st.mode || "split"));
     togglePlanSettings(false);
     renderMain();
+    return true;
+  }
+  if (which === "pack") {
+    openWeeklyPackDialog();
     return true;
   }
   if (which === "progress") {

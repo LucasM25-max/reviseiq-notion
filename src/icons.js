@@ -142,6 +142,10 @@ const UI_PATHS = {
   notebook: '<path d="M7 3.6h11.4v16.8H7z"/><path d="M7 3.6H5.6v16.8H7"/><path d="M10 8.4h5.4M10 12h5.4M10 15.6h3.4"/>',
   pencil: '<path d="M4.6 19.4l1-3.6L15.2 6.2a1.8 1.8 0 0 1 2.6 0l.6.6a1.8 1.8 0 0 1 0 2.6L8.8 19l-4.2.4z"/><path d="M14.2 7.6 17 10.4"/>',
   sparkle: '<path d="M12 3.6l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.6L5.8 9.8l4.6-1.6z"/><path d="M18 16.4l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
+  keyTerm: '<circle cx="8.6" cy="8.6" r="4.6"/><path d="m11.9 11.9 7.9 7.9"/><path d="m15.6 15.6 1.9-1.9"/>',
+  compare: '<rect x="3.4" y="5" width="7.2" height="14" rx="1.8"/><rect x="13.4" y="5" width="7.2" height="14" rx="1.8"/><path d="M12 8.4v7.2"/>',
+  steps: '<path d="M4 5.6h2.2v4.2M3.8 9.8h4.2"/><path d="M11.4 7.6H20"/><path d="M4 14.6a1.7 1.7 0 1 1 2.9 1.2L4 19h3.6"/><path d="M11.4 17H17.6"/>',
+  printer: '<path d="M7 9V4h10v5"/><rect x="3.6" y="9" width="16.8" height="7" rx="2"/><path d="M7 13.4h10V20.4H7z"/>',
   heading1: '<path d="M4 6v12M12 6v12M4 12h8M16 18V8l-2.4 1.6"/>',
   heading2: '<path d="M4 6v12M11 6v12M4 12h7M15 9.5a2.5 2.5 0 0 1 5 0c0 2.5-5 3.5-5 8.5h5"/>',
   heading3: '<path d="M4 6v12M11 6v12M4 12h7M15 8.5h5l-3 3.5a2.8 2.8 0 1 1-2.2 4.6"/>'

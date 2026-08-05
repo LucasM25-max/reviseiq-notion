@@ -148,9 +148,11 @@ table.b-table tr:first-child td{background:var(--bg-soft);}
 .b-timeline{position:relative;margin:4px 0 2px;}
 .tl-item{position:relative;display:flex;gap:12px;padding-bottom:14px;}
 .tl-marker{position:relative;flex:0 0 12px;display:flex;justify-content:center;}
-.tl-marker::before{content:"";position:absolute;top:12px;bottom:-14px;width:2px;background:var(--border);}
+/* The rail runs from just under one dot to the centre of the next; the dot
+   sits on top of it, so the join is invisible. */
+.tl-marker::before{content:"";position:absolute;top:18px;bottom:-25px;width:2px;background:var(--border);}
 .tl-item:last-of-type .tl-marker::before{display:none;}
-.tl-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);margin-top:7px;box-shadow:0 0 0 3px var(--accent-softer);}
+.tl-dot{position:relative;z-index:1;width:9px;height:9px;border-radius:50%;background:var(--accent);margin-top:7px;box-shadow:0 0 0 3px var(--accent-softer);}
 .tl-body{flex:1;min-width:0;}
 .tl-head{display:flex;align-items:baseline;gap:10px;}
 .tl-date{
@@ -175,3 +177,260 @@ table.b-table tr:first-child td{background:var(--bg-soft);}
 }
 .b-timeline:hover .tl-add,.tl-add:focus{opacity:1;}
 .tl-add:hover{border-color:var(--accent-2);color:var(--accent);}
+
+/* ---------------- key term (also a flashcard) ---------------- */
+.b-def {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-m);
+  background: var(--card-bg);
+  padding: 10px 14px 11px;
+}
+.def-main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.def-term {
+  font-weight: 650;
+  font-size: 15px;
+  flex: 1;
+  min-width: 0;
+  outline: none;
+}
+.def-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-softer);
+  border-radius: 999px;
+  padding: 2px 8px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.b-def:hover .def-chip,
+.b-def:focus-within .def-chip {
+  opacity: 1;
+}
+.def-meaning {
+  margin-top: 3px;
+  outline: none;
+}
+.def-example {
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: var(--text-soft);
+  outline: none;
+}
+
+/* ---------------- comparison ---------------- */
+.b-cmp {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  overflow: hidden;
+}
+.cmp-head {
+  display: flex;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+}
+.cmp-label {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  font-weight: 650;
+  font-size: 13.5px;
+  outline: none;
+}
+.cmp-label + .cmp-label {
+  border-left: 1px solid var(--border);
+}
+.cmp-row {
+  display: flex;
+  position: relative;
+  border-top: 1px solid var(--border);
+}
+.cmp-row:first-of-type {
+  border-top: 0;
+}
+.cmp-cell {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  outline: none;
+}
+.cmp-cell + .cmp-cell {
+  border-left: 1px solid var(--border);
+}
+
+/* ---------------- process ---------------- */
+.b-proc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.proc-step {
+  display: flex;
+  gap: 10px;
+  position: relative;
+  padding: 4px 0;
+}
+.proc-num {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.proc-body {
+  flex: 1;
+  min-width: 0;
+}
+.proc-text {
+  outline: none;
+}
+.proc-why {
+  font-size: 13px;
+  color: var(--text-soft);
+  outline: none;
+}
+
+/* ---------------- source ---------------- */
+.b-src {
+  border-left: 3px solid var(--border-strong);
+  padding: 2px 0 2px 14px;
+}
+.src-quote {
+  font-size: 15.5px;
+  font-style: italic;
+  outline: none;
+}
+.src-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.src-attr,
+.src-date {
+  outline: none;
+}
+.src-attr::before {
+  content: "\2014\00a0";
+}
+.src-comment {
+  margin-top: 6px;
+  font-size: 13.5px;
+  color: var(--text-soft);
+  outline: none;
+}
+
+/* ---------------- key figure ---------------- */
+.b-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--bg-soft);
+  padding: 10px 14px;
+}
+.stat-value {
+  flex: none;
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 34px;
+  outline: none;
+}
+.stat-side {
+  flex: 1;
+  min-width: 0;
+}
+.stat-label {
+  font-weight: 600;
+  outline: none;
+}
+.stat-context {
+  font-size: 13px;
+  color: var(--text-soft);
+  outline: none;
+}
+
+/* ---------------- shared add / remove affordances ---------------- */
+.fb-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0 2px 12px;
+  padding: 3px 8px;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  font-size: 12.5px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+.fb-add:hover {
+  background: var(--bg-soft);
+  color: var(--text-soft);
+}
+.fb-del {
+  position: absolute;
+  top: 6px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.cmp-row:hover .fb-del,
+.proc-step:hover .fb-del,
+.fb-del:focus-visible {
+  opacity: 1;
+}
+.fb-del:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+[data-fb-field]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-faint);
+}
+
+@media (max-width: 640px) {
+  .cmp-head,
+  .cmp-row {
+    flex-direction: column;
+  }
+  .cmp-label + .cmp-label,
+  .cmp-cell + .cmp-cell {
+    border-left: 0;
+    border-top: 1px dashed var(--border);
+  }
+  .fb-del {
+    opacity: 1;
+  }
+}
