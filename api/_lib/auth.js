@@ -121,31 +121,36 @@ function bearerFrom(req) {
  *   - Otherwise                   -> a token is verified when present, and an
  *                                    anonymous caller is still allowed.
  *
- * Returns { uid } on success, or null after it has already replied with 401.
+ * Returns { uid, idToken } on success, or null after it has already replied
+ * with 401. `idToken` is the verified bearer token itself, forwarded as-is
+ * so callers can use it for their own authenticated Firestore requests
+ * (e.g. api/_lib/usage.js reading/writing usage/limits under this same
+ * user, which Firestore's security rules only allow for that user's own
+ * token).
  */
 export async function requireUser(req, res, send) {
   const projectId = process.env.FIREBASE_PROJECT_ID || "";
   const mustAuth = process.env.REQUIRE_AUTH === "1";
   const token = bearerFrom(req);
 
-  if (!projectId) return { uid: null, verified: false };
+  if (!projectId) return { uid: null, idToken: null, verified: false };
 
   if (!token) {
     if (mustAuth) {
       send(res, 401, { error: "Please sign in to use ReviseIQ AI.", code: "auth-required" });
       return null;
     }
-    return { uid: null, verified: false };
+    return { uid: null, idToken: null, verified: false };
   }
 
   try {
     const payload = await verifyIdToken(token, projectId);
-    return { uid: payload.sub, email: payload.email || "", verified: true };
+    return { uid: payload.sub, idToken: token, email: payload.email || "", verified: true };
   } catch (e) {
     if (mustAuth) {
       send(res, 401, { error: "Your session has expired. Sign in again.", code: "auth-expired" });
       return null;
     }
-    return { uid: null, verified: false };
+    return { uid: null, idToken: null, verified: false };
   }
 }

@@ -1,0 +1,137 @@
+/* ---------- First-run walkthrough ---------- */
+
+/* Steps with nothing specific to point at use a centred card over a dimmed
+   backdrop, the same weight as a normal modal. */
+.onboard-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 42, 38, 0.32);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* Steps that point at a real button/panel don't dim the app - the whole
+   point is that the thing being described is right there, usable, in its
+   normal place. Just a small floating card near it. */
+.onboard-card {
+  position: fixed;
+  z-index: 501;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-m);
+  padding: 16px;
+}
+.onboard-scrim .onboard-card {
+  position: static;
+  width: 360px;
+}
+
+.onboard-eyebrow {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.onboard-title {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 8px 0;
+}
+.onboard-body {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-soft);
+  margin: 0 0 16px 0;
+}
+
+.onboard-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.onboard-skip {
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  font-size: 12px;
+  padding: 6px 4px;
+  border-radius: var(--radius-s);
+}
+.onboard-skip:hover {
+  color: var(--text-soft);
+  background: var(--bg-soft);
+}
+.onboard-spacer {
+  flex: 1;
+}
+.onboard-back,
+.onboard-next {
+  border-radius: var(--radius-s);
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid var(--border-strong);
+  background: var(--card-bg);
+  color: var(--text);
+}
+.onboard-back:hover {
+  background: var(--bg-soft);
+}
+.onboard-back[disabled] {
+  opacity: 0;
+  pointer-events: none;
+}
+.onboard-next {
+  border-color: transparent;
+  background: var(--accent-2);
+  color: #fff;
+}
+.onboard-next:hover {
+  background: var(--accent);
+}
+
+/* A small ring around whatever the current step is pointing at. Applied
+   directly to the real element, so it stays interactive underneath. */
+.onboard-glow {
+  position: relative;
+  z-index: 45;
+  outline: 2px solid var(--accent-2);
+  outline-offset: 3px;
+  border-radius: var(--radius-s);
+  box-shadow: 0 0 0 6px var(--accent-soft);
+}
+
+@media (max-width: 860px) {
+  /* No drawer-juggling or off-canvas targeting on phones - every step is a
+     plain centred card, same as the no-target steps everywhere. */
+  .onboard-card {
+    position: static;
+    width: 100%;
+  }
+}
+
+.onboard-replay-btn {
+  width: 100%;
+  margin-top: 8px;
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  font-size: 11.5px;
+  padding: 4px;
+  text-align: center;
+  border-radius: var(--radius-s);
+}
+.onboard-replay-btn:hover {
+  color: var(--text-soft);
+  background: var(--bg-soft);
+}

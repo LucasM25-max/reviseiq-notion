@@ -30,6 +30,7 @@ import {
   buildRecallPrompt
 } from "../../src/practise/prompt.js";
 import { requireUser } from "../_lib/auth.js";
+import { checkUserQuota, recordUsage, acquireSlot, releaseSlot, highUsageMessage } from "../_lib/usage.js";
 
 const KNOWLEDGE_SCHEMA = {
   type: "OBJECT",
@@ -231,126 +232,141 @@ export default async function handler(req, res) {
   const user = await requireUser(req, res, send);
   if (!user) return;
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return send(res, 500, {
-      error: "No Gemini API key is configured. Add GEMINI_API_KEY in your Vercel project settings and redeploy."
-    });
+  let quota = { allowed: true, state: null };
+  if (user.uid) {
+    quota = await checkUserQuota(user.uid, user.idToken, "practise");
+    if (!quota.allowed) return send(res, 429, { error: quota.message, code: "quota-exceeded" });
   }
 
-  let body;
+  const slot = await acquireSlot("practise");
+  if (!slot.ok) return send(res, 429, { error: highUsageMessage(), code: "high-usage" });
+
   try {
-    body = await readBody(req);
-  } catch (e) {
-    return send(res, 400, { error: "Could not read the request." });
-  }
-
-  const notes = String(body.notes || "").slice(0, MAX_NOTE_CHARS);
-  const words = notes.trim() ? notes.trim().split(/\s+/).length : 0;
-  if (words < MIN_PRACTISE_WORDS) {
-    return send(res, 400, { error: "There aren't enough notes here to build a practise from." });
-  }
-
-  const targetMinutes = clampTarget(body.targetMinutes);
-  const pageTitle = String(body.pageTitle || "").slice(0, 200);
-  const subjectTitle = String(body.subjectTitle || "").slice(0, 200);
-  const includedPages = Array.isArray(body.includedPages) ? body.includedPages.slice(0, 40) : [];
-
-  // An exam stage is only ever attempted when the caller names a component and
-  // option that exist in the registry. No registry, no exam questions.
-  const askedExam = body.exam && body.exam.componentId && body.exam.optionId;
-  const component = askedExam ? COMPONENTS[body.exam.componentId] : null;
-  const option = askedExam ? optionById(body.exam.optionId) : null;
-  const wantExam = Boolean(component && option && option.componentId === component.id);
-
-  const knowledgePlan = planKnowledge(targetMinutes, wantExam);
-  const stageArgs = {
-    count: knowledgePlan.count,
-    marks: knowledgePlan.marks,
-    minutes: knowledgePlan.minutes,
-    marksPerQuestion: knowledgePlan.marksPerQuestion,
-    pageTitle,
-    subjectTitle,
-    includedPages,
-    notes,
-    hasExamStage: wantExam
-  };
-  const knowledgePrompt =
-    knowledgePlan.style === "recall" ? buildRecallPrompt(stageArgs) : buildKnowledgePrompt(stageArgs);
-
-  const examPromise = wantExam
-    ? buildExamStage(
-        {
-          componentId: component.id,
-          optionId: option.id,
-          site: String(body.exam.site || "").slice(0, 120),
-          targetMinutes,
-          capMinutes: 25 - knowledgePlan.minutes,
-          pageTitle,
-          includedPages,
-          notes
-        },
-        apiKey
-      ).then(
-        (stage) => ({ stage, error: null }),
-        (e) => ({ stage: null, error: e.message || "The exam questions failed to generate." })
-      )
-    : Promise.resolve({ stage: null, error: null });
-
-  let generated;
-  let examOut;
-  try {
-    const both = await Promise.all([
-      callGemini(knowledgePrompt.system, knowledgePrompt.user, KNOWLEDGE_SCHEMA, apiKey),
-      examPromise
-    ]);
-    generated = both[0];
-    examOut = both[1];
-  } catch (e) {
-    return send(res, e.status || 502, {
-      error:
-        e.status === 429
-          ? "Every Gemini model is rate limiting right now. Wait a minute and try again."
-          : "Couldn't build the practise: " + e.message
-    });
-  }
-
-  const seen = new Set();
-  const questions = [];
-  (generated.questions || []).forEach((raw) => {
-    const q = normaliseKnowledge(raw || {}, questions.length + 1, knowledgePlan.style);
-    if (!q) return;
-    const fingerprint = q.prompt.toLowerCase().replace(/[^a-z0-9 ]/g, "").slice(0, 80);
-    if (seen.has(fingerprint)) return;
-    seen.add(fingerprint);
-    questions.push(q);
-  });
-
-  const minimum = knowledgePlan.style === "recall" ? 4 : 3;
-  if (questions.length < minimum) {
-    return send(res, 502, { error: "Gemini returned too few usable questions. Try again." });
-  }
-
-  const kept = questions.slice(0, knowledgePlan.count);
-  const knowledgeMarks = kept.reduce((sum, q) => sum + q.marks, 0);
-  const exam = examOut.stage;
-
-  return send(res, 200, {
-    practise: {
-      title: String(generated.title || "").trim().slice(0, 90) || pageTitle || "Practise",
-      targetMinutes,
-      knowledge: {
-        style: knowledgePlan.style,
-        minutes: knowledgePlan.minutes,
-        marks: knowledgeMarks,
-        questions: kept
-      },
-      exam,
-      examError: exam ? null : examOut.error,
-      allowedMinutes: allowedMinutes(knowledgePlan.minutes, exam ? exam.minutes : 0),
-      totalMarks: knowledgeMarks + (exam ? exam.marks : 0),
-      generatedAt: Date.now(),
-      model: lastModelUsed()
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return send(res, 500, {
+        error: "No Gemini API key is configured. Add GEMINI_API_KEY in your Vercel project settings and redeploy."
+      });
     }
-  });
+
+    let body;
+    try {
+      body = await readBody(req);
+    } catch (e) {
+      return send(res, 400, { error: "Could not read the request." });
+    }
+
+    const notes = String(body.notes || "").slice(0, MAX_NOTE_CHARS);
+    const words = notes.trim() ? notes.trim().split(/\s+/).length : 0;
+    if (words < MIN_PRACTISE_WORDS) {
+      return send(res, 400, { error: "There aren't enough notes here to build a practise from." });
+    }
+
+    const targetMinutes = clampTarget(body.targetMinutes);
+    const pageTitle = String(body.pageTitle || "").slice(0, 200);
+    const subjectTitle = String(body.subjectTitle || "").slice(0, 200);
+    const includedPages = Array.isArray(body.includedPages) ? body.includedPages.slice(0, 40) : [];
+
+    // An exam stage is only ever attempted when the caller names a component and
+    // option that exist in the registry. No registry, no exam questions.
+    const askedExam = body.exam && body.exam.componentId && body.exam.optionId;
+    const component = askedExam ? COMPONENTS[body.exam.componentId] : null;
+    const option = askedExam ? optionById(body.exam.optionId) : null;
+    const wantExam = Boolean(component && option && option.componentId === component.id);
+
+    const knowledgePlan = planKnowledge(targetMinutes, wantExam);
+    const stageArgs = {
+      count: knowledgePlan.count,
+      marks: knowledgePlan.marks,
+      minutes: knowledgePlan.minutes,
+      marksPerQuestion: knowledgePlan.marksPerQuestion,
+      pageTitle,
+      subjectTitle,
+      includedPages,
+      notes,
+      hasExamStage: wantExam
+    };
+    const knowledgePrompt =
+      knowledgePlan.style === "recall" ? buildRecallPrompt(stageArgs) : buildKnowledgePrompt(stageArgs);
+
+    const examPromise = wantExam
+      ? buildExamStage(
+          {
+            componentId: component.id,
+            optionId: option.id,
+            site: String(body.exam.site || "").slice(0, 120),
+            targetMinutes,
+            capMinutes: 25 - knowledgePlan.minutes,
+            pageTitle,
+            includedPages,
+            notes
+          },
+          apiKey
+        ).then(
+          (stage) => ({ stage, error: null }),
+          (e) => ({ stage: null, error: e.message || "The exam questions failed to generate." })
+        )
+      : Promise.resolve({ stage: null, error: null });
+
+    let generated;
+    let examOut;
+    try {
+      const both = await Promise.all([
+        callGemini(knowledgePrompt.system, knowledgePrompt.user, KNOWLEDGE_SCHEMA, apiKey),
+        examPromise
+      ]);
+      generated = both[0];
+      examOut = both[1];
+    } catch (e) {
+      return send(res, e.status || 502, {
+        error:
+          e.status === 429
+            ? "Every Gemini model is rate limiting right now. Wait a minute and try again."
+            : "Couldn't build the practise: " + e.message
+      });
+    }
+
+    const seen = new Set();
+    const questions = [];
+    (generated.questions || []).forEach((raw) => {
+      const q = normaliseKnowledge(raw || {}, questions.length + 1, knowledgePlan.style);
+      if (!q) return;
+      const fingerprint = q.prompt.toLowerCase().replace(/[^a-z0-9 ]/g, "").slice(0, 80);
+      if (seen.has(fingerprint)) return;
+      seen.add(fingerprint);
+      questions.push(q);
+    });
+
+    const minimum = knowledgePlan.style === "recall" ? 4 : 3;
+    if (questions.length < minimum) {
+      return send(res, 502, { error: "Gemini returned too few usable questions. Try again." });
+    }
+
+    const kept = questions.slice(0, knowledgePlan.count);
+    const knowledgeMarks = kept.reduce((sum, q) => sum + q.marks, 0);
+    const exam = examOut.stage;
+
+    if (user.uid) recordUsage(user.uid, user.idToken, "practise", quota.state).catch(() => {});
+
+    return send(res, 200, {
+      practise: {
+        title: String(generated.title || "").trim().slice(0, 90) || pageTitle || "Practise",
+        targetMinutes,
+        knowledge: {
+          style: knowledgePlan.style,
+          minutes: knowledgePlan.minutes,
+          marks: knowledgeMarks,
+          questions: kept
+        },
+        exam,
+        examError: exam ? null : examOut.error,
+        allowedMinutes: allowedMinutes(knowledgePlan.minutes, exam ? exam.minutes : 0),
+        totalMarks: knowledgeMarks + (exam ? exam.marks : 0),
+        generatedAt: Date.now(),
+        model: lastModelUsed()
+      }
+    });
+  } finally {
+    releaseSlot("practise").catch(() => {});
+  }
 }

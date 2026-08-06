@@ -7,6 +7,7 @@
  */
 import { COMPONENTS, optionById, buildGenerationPrompt, paperTotals } from "../../src/exam/aqaHistory.js";
 import { requireUser } from "../_lib/auth.js";
+import { checkUserQuota, recordUsage, acquireSlot, releaseSlot, highUsageMessage } from "../_lib/usage.js";
 
 // Gemini is tried in this order. A model that errors, gets rate limited, is
 // overloaded, or hands back something unreadable simply drops through to the
@@ -183,97 +184,112 @@ export default async function handler(req, res) {
   const user = await requireUser(req, res, send);
   if (!user) return;
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return send(res, 500, {
-      error: "No Gemini API key is configured. Add GEMINI_API_KEY in your Vercel project settings and redeploy."
-    });
+  let quota = { allowed: true, state: null };
+  if (user.uid) {
+    quota = await checkUserQuota(user.uid, user.idToken, "test");
+    if (!quota.allowed) return send(res, 429, { error: quota.message, code: "quota-exceeded" });
   }
 
-  let body;
+  const slot = await acquireSlot("test");
+  if (!slot.ok) return send(res, 429, { error: highUsageMessage(), code: "high-usage" });
+
   try {
-    body = await readBody(req);
-  } catch (e) {
-    return send(res, 400, { error: "Could not read the request." });
-  }
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return send(res, 500, {
+        error: "No Gemini API key is configured. Add GEMINI_API_KEY in your Vercel project settings and redeploy."
+      });
+    }
 
-  const component = COMPONENTS[body.componentId];
-  const option = optionById(body.optionId);
-  if (!component || !option || option.componentId !== component.id) {
-    return send(res, 400, { error: "Unknown exam component or option." });
-  }
+    let body;
+    try {
+      body = await readBody(req);
+    } catch (e) {
+      return send(res, 400, { error: "Could not read the request." });
+    }
 
-  const notes = String(body.notes || "").slice(0, MAX_NOTE_CHARS);
-  if (notes.trim().split(/\s+/).length < 120) {
-    return send(res, 400, { error: "There aren't enough notes here to build a paper from." });
-  }
+    const component = COMPONENTS[body.componentId];
+    const option = optionById(body.optionId);
+    if (!component || !option || option.componentId !== component.id) {
+      return send(res, 400, { error: "Unknown exam component or option." });
+    }
 
-  const site = String(body.site || "").slice(0, 120);
-  const prompt = buildGenerationPrompt({
-    componentId: component.id,
-    optionId: option.id,
-    site,
-    pageTitle: String(body.pageTitle || "").slice(0, 200),
-    includedPages: Array.isArray(body.includedPages) ? body.includedPages.slice(0, 40) : [],
-    notes
-  });
+    const notes = String(body.notes || "").slice(0, MAX_NOTE_CHARS);
+    if (notes.trim().split(/\s+/).length < 120) {
+      return send(res, 400, { error: "There aren't enough notes here to build a paper from." });
+    }
 
-  let generated;
-  try {
-    generated = await callGemini(prompt.system, prompt.user, PAPER_SCHEMA, apiKey);
-  } catch (e) {
-    return send(res, e.status || 502, {
-      error:
-        e.status === 429
-          ? "Every Gemini model is rate limiting right now. Wait a minute and try again."
-          : "Couldn't generate the paper: " + e.message
-    });
-  }
-
-  // Marks, timings and question order come from the specification, never from
-  // the model, so a generated paper always totals what the real paper totals.
-  const byNumber = {};
-  (generated.questions || []).forEach((q) => {
-    byNumber[String(q.number)] = q;
-  });
-
-  const questions = component.questions.map((spec) => {
-    const g = byNumber[String(spec.n)] || {};
-    return {
-      number: spec.n,
-      stem: String(g.stem || "").trim() || "(This question failed to generate \u2014 skip it.)",
-      marks: spec.marks,
-      spagMarks: spec.spag,
-      ao: spec.ao,
-      guidanceMinutes: spec.minutes,
-      usesSources: spec.uses,
-      markScheme: g.markScheme || { levels: [], indicativeContent: [] }
-    };
-  });
-
-  const totals = paperTotals(component);
-  const sources = (generated.sources || []).slice(0, component.stimulusCount).map((s) => ({
-    label: String(s.label || "").trim(),
-    provenance: String(s.provenance || "").trim(),
-    body: String(s.body || "").trim(),
-    synthetic: true
-  }));
-
-  return send(res, 200, {
-    paper: {
+    const site = String(body.site || "").slice(0, 120);
+    const prompt = buildGenerationPrompt({
       componentId: component.id,
       optionId: option.id,
-      paperTitle: component.paper,
-      sectionTitle: component.section,
-      optionLabel: option.label,
       site,
-      focusSummary: String(generated.focusSummary || "").slice(0, 300),
-      totalMarks: totals.marks,
-      timeLimitMinutes: totals.minutes,
-      sources,
-      questions,
-      generatedAt: Date.now(),
-      model: lastModelUsed()
+      pageTitle: String(body.pageTitle || "").slice(0, 200),
+      includedPages: Array.isArray(body.includedPages) ? body.includedPages.slice(0, 40) : [],
+      notes
+    });
+
+    let generated;
+    try {
+      generated = await callGemini(prompt.system, prompt.user, PAPER_SCHEMA, apiKey);
+    } catch (e) {
+      return send(res, e.status || 502, {
+        error:
+          e.status === 429
+            ? "Every Gemini model is rate limiting right now. Wait a minute and try again."
+            : "Couldn't generate the paper: " + e.message
+      });
     }
-  });
+
+    // Marks, timings and question order come from the specification, never from
+    // the model, so a generated paper always totals what the real paper totals.
+    const byNumber = {};
+    (generated.questions || []).forEach((q) => {
+      byNumber[String(q.number)] = q;
+    });
+
+    const questions = component.questions.map((spec) => {
+      const g = byNumber[String(spec.n)] || {};
+      return {
+        number: spec.n,
+        stem: String(g.stem || "").trim() || "(This question failed to generate \u2014 skip it.)",
+        marks: spec.marks,
+        spagMarks: spec.spag,
+        ao: spec.ao,
+        guidanceMinutes: spec.minutes,
+        usesSources: spec.uses,
+        markScheme: g.markScheme || { levels: [], indicativeContent: [] }
+      };
+    });
+
+    const totals = paperTotals(component);
+    const sources = (generated.sources || []).slice(0, component.stimulusCount).map((s) => ({
+      label: String(s.label || "").trim(),
+      provenance: String(s.provenance || "").trim(),
+      body: String(s.body || "").trim(),
+      synthetic: true
+    }));
+
+    if (user.uid) recordUsage(user.uid, user.idToken, "test", quota.state).catch(() => {});
+
+    return send(res, 200, {
+      paper: {
+        componentId: component.id,
+        optionId: option.id,
+        paperTitle: component.paper,
+        sectionTitle: component.section,
+        optionLabel: option.label,
+        site,
+        focusSummary: String(generated.focusSummary || "").slice(0, 300),
+        totalMarks: totals.marks,
+        timeLimitMinutes: totals.minutes,
+        sources,
+        questions,
+        generatedAt: Date.now(),
+        model: lastModelUsed()
+      }
+    });
+  } finally {
+    releaseSlot("test").catch(() => {});
+  }
 }

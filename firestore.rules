@@ -19,6 +19,15 @@ service cloud.firestore {
       }
     }
 
+    // Shared counters used only to throttle how many quiz/practise/test
+    // generations are running across every user at once (see
+    // api/_lib/usage.js). Deliberately not scoped to a single user - that's
+    // the point of them - and deliberately not personal data: each document
+    // is just a feature name and a number.
+    match /usage_global/{feature} {
+      allow read, write: if true;
+    }
+
     // Anything not matched above is denied by default.
   }
 }

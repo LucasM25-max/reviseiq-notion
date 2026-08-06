@@ -8,6 +8,7 @@
 import { callGemini, lastModelUsed } from "../test/generate.js";
 import { buildQuizPrompt, clampCount, MIN_QUIZ_WORDS, MAX_NOTE_CHARS } from "../../src/quiz/quizPrompt.js";
 import { requireUser } from "../_lib/auth.js";
+import { checkUserQuota, recordUsage, acquireSlot, releaseSlot, highUsageMessage } from "../_lib/usage.js";
 
 const QUIZ_SCHEMA = {
   type: "OBJECT",
@@ -83,67 +84,86 @@ export default async function handler(req, res) {
   const user = await requireUser(req, res, send);
   if (!user) return;
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return send(res, 500, {
-      error: "No Gemini API key is configured. Add GEMINI_API_KEY in your Vercel project settings and redeploy."
-    });
+  // Per-user daily/monthly quota - only enforceable for a signed-in caller,
+  // since it has to be tied to a stable identity.
+  let quota = { allowed: true, state: null };
+  if (user.uid) {
+    quota = await checkUserQuota(user.uid, user.idToken, "quiz");
+    if (!quota.allowed) return send(res, 429, { error: quota.message, code: "quota-exceeded" });
   }
 
-  let body;
+  // Shared "how many quizzes are generating right now" slot, across every
+  // signed-in and signed-out caller.
+  const slot = await acquireSlot("quiz");
+  if (!slot.ok) return send(res, 429, { error: highUsageMessage(), code: "high-usage" });
+
   try {
-    body = await readBody(req);
-  } catch (e) {
-    return send(res, 400, { error: "Could not read the request." });
-  }
-
-  const notes = String(body.notes || "").slice(0, MAX_NOTE_CHARS);
-  const words = notes.trim() ? notes.trim().split(/\s+/).length : 0;
-  if (words < MIN_QUIZ_WORDS) {
-    return send(res, 400, { error: "There aren't enough notes here to build a quiz from." });
-  }
-
-  const count = clampCount(body.count, words);
-  const prompt = buildQuizPrompt({
-    count,
-    pageTitle: String(body.pageTitle || "").slice(0, 200),
-    includedPages: Array.isArray(body.includedPages) ? body.includedPages.slice(0, 40) : [],
-    notes
-  });
-
-  let generated;
-  try {
-    generated = await callGemini(prompt.system, prompt.user, QUIZ_SCHEMA, apiKey);
-  } catch (e) {
-    return send(res, e.status || 502, {
-      error:
-        e.status === 429
-          ? "Gemini is rate limiting right now. Wait a minute and try again."
-          : "Couldn't build the quiz: " + e.message
-    });
-  }
-
-  const seen = new Set();
-  const questions = [];
-  (generated.questions || []).forEach((raw) => {
-    const q = normaliseQuestion(raw || {}, questions.length + 1);
-    if (!q) return;
-    const fingerprint = q.question.toLowerCase().replace(/[^a-z0-9 ]/g, "").slice(0, 80);
-    if (seen.has(fingerprint)) return;
-    seen.add(fingerprint);
-    questions.push(q);
-  });
-
-  if (questions.length < 5) {
-    return send(res, 502, { error: "Gemini returned too few usable questions. Try again." });
-  }
-
-  return send(res, 200, {
-    quiz: {
-      title: String(generated.title || "").trim().slice(0, 90) || String(body.pageTitle || "Quiz"),
-      questions: questions.slice(0, count),
-      generatedAt: Date.now(),
-      model: lastModelUsed()
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return send(res, 500, {
+        error: "No Gemini API key is configured. Add GEMINI_API_KEY in your Vercel project settings and redeploy."
+      });
     }
-  });
+
+    let body;
+    try {
+      body = await readBody(req);
+    } catch (e) {
+      return send(res, 400, { error: "Could not read the request." });
+    }
+
+    const notes = String(body.notes || "").slice(0, MAX_NOTE_CHARS);
+    const words = notes.trim() ? notes.trim().split(/\s+/).length : 0;
+    if (words < MIN_QUIZ_WORDS) {
+      return send(res, 400, { error: "There aren't enough notes here to build a quiz from." });
+    }
+
+    const count = clampCount(body.count, words);
+    const prompt = buildQuizPrompt({
+      count,
+      pageTitle: String(body.pageTitle || "").slice(0, 200),
+      includedPages: Array.isArray(body.includedPages) ? body.includedPages.slice(0, 40) : [],
+      notes
+    });
+
+    let generated;
+    try {
+      generated = await callGemini(prompt.system, prompt.user, QUIZ_SCHEMA, apiKey);
+    } catch (e) {
+      return send(res, e.status || 502, {
+        error:
+          e.status === 429
+            ? "Gemini is rate limiting right now. Wait a minute and try again."
+            : "Couldn't build the quiz: " + e.message
+      });
+    }
+
+    const seen = new Set();
+    const questions = [];
+    (generated.questions || []).forEach((raw) => {
+      const q = normaliseQuestion(raw || {}, questions.length + 1);
+      if (!q) return;
+      const fingerprint = q.question.toLowerCase().replace(/[^a-z0-9 ]/g, "").slice(0, 80);
+      if (seen.has(fingerprint)) return;
+      seen.add(fingerprint);
+      questions.push(q);
+    });
+
+    if (questions.length < 5) {
+      return send(res, 502, { error: "Gemini returned too few usable questions. Try again." });
+    }
+
+    if (user.uid) recordUsage(user.uid, user.idToken, "quiz", quota.state).catch(() => {});
+
+    return send(res, 200, {
+      quiz: {
+        title: String(generated.title || "").trim().slice(0, 90) || String(body.pageTitle || "Quiz"),
+        questions: questions.slice(0, count),
+        generatedAt: Date.now(),
+        model: lastModelUsed()
+      }
+    });
+  } finally {
+    releaseSlot("quiz").catch(() => {});
+  }
 }
