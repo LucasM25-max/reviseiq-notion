@@ -20,6 +20,7 @@ import { navigateTo, openPlanView } from "./pages.js";
 import { initMobileEvents } from "./events/mobileEvents.js";
 import { registerServiceWorker, initConnectivityNotices } from "./pwa.js";
 import { initCloud } from "./cloud/index.js";
+import { initSearch } from "./render/search.js";
 
 function boot() {
   // Formatting must come out as <b>/<i>/<u> tags, not styled spans, so it
@@ -61,6 +62,7 @@ function boot() {
   initMainEvents();
   initSidebarEvents();
   initMobileEvents();
+  initSearch();
   initConnectivityNotices();
   registerServiceWorker();
 

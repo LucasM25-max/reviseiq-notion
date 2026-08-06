@@ -75,6 +75,26 @@
     display: flex;
   }
 
+  /* The fixed top-right icon is replaced by the mobile-bar button; the
+     panel itself becomes a full-screen sheet instead of a small dropdown. */
+  .search-widget {
+    display: none;
+  }
+  .search-panel {
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    border: none;
+    z-index: 65;
+  }
+  .search-input-row {
+    padding-top: max(10px, env(safe-area-inset-top));
+  }
+
   /* ---- sidebar becomes a slide-in drawer ---- */
   .sidebar {
     position: fixed;

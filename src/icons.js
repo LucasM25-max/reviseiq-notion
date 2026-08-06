@@ -148,7 +148,8 @@ const UI_PATHS = {
   printer: '<path d="M7 9V4h10v5"/><rect x="3.6" y="9" width="16.8" height="7" rx="2"/><path d="M7 13.4h10V20.4H7z"/>',
   heading1: '<path d="M4 6v12M12 6v12M4 12h8M16 18V8l-2.4 1.6"/>',
   heading2: '<path d="M4 6v12M11 6v12M4 12h7M15 9.5a2.5 2.5 0 0 1 5 0c0 2.5-5 3.5-5 8.5h5"/>',
-  heading3: '<path d="M4 6v12M11 6v12M4 12h7M15 8.5h5l-3 3.5a2.8 2.8 0 1 1-2.2 4.6"/>'
+  heading3: '<path d="M4 6v12M11 6v12M4 12h7M15 8.5h5l-3 3.5a2.8 2.8 0 1 1-2.2 4.6"/>',
+  search: '<circle cx="10.3" cy="10.3" r="6.3"/><path d="m19.5 19.5-4.7-4.7"/>'
 };
 
 export function ui(name, size, strokeWidth) {

@@ -1,0 +1,206 @@
+/* ---------- Full-text search: top-right icon + expanding panel ---------- */
+
+.search-widget {
+  position: fixed;
+  top: 14px;
+  right: 20px;
+  z-index: 40;
+}
+
+/* Quiz / practise / test sessions take the whole screen over - the icon
+   should not float on top of them. */
+.search-widget.session-hidden {
+  display: none;
+}
+
+.search-toggle-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-s);
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.search-toggle-btn:hover {
+  background: var(--bg-soft);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.search-widget.open .search-toggle-btn {
+  display: none;
+}
+
+/* Sit to the left of the "On this page" rail whenever it's showing, the
+   same way main.css makes room for it. */
+@media (min-width: 1180px) {
+  #app:has(.toc-rail.has-items) .search-widget {
+    right: 254px;
+  }
+}
+
+.search-panel {
+  position: fixed;
+  top: 14px;
+  right: 20px;
+  z-index: 41;
+  width: 320px;
+  max-height: min(70vh, 520px);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-m);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+@media (min-width: 1180px) {
+  #app:has(.toc-rail.has-items) .search-panel {
+    right: 254px;
+  }
+}
+
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.search-input-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+.search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.search-input::placeholder {
+  color: var(--text-faint);
+}
+.search-close-btn {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  border-radius: var(--radius-s);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.search-close-btn:hover {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+.search-results {
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.search-hint,
+.search-empty {
+  padding: 22px 14px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.search-result-group {
+  padding: 6px 4px 8px 4px;
+}
+.search-result-group + .search-result-group {
+  border-top: 1px solid var(--border);
+}
+
+.search-result-page {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+  padding: 6px 6px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-s);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.search-result-page:hover {
+  background: var(--bg-soft);
+}
+.search-result-page .app-icon {
+  flex-shrink: 0;
+}
+.search-result-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-result-crumb {
+  flex-shrink: 0;
+  max-width: 100px;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-snippet {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 5px 8px 5px 34px;
+  border-radius: var(--radius-s);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-soft);
+}
+.search-result-snippet:hover {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+.search-result-snippet strong {
+  color: var(--text);
+}
+.search-result-snippet mark {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.search-result-more {
+  padding: 2px 8px 4px 34px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* Reuse the same flash treatment the "On this page" rail uses when it
+   scrolls a heading into view, so jumping from search feels consistent. */
+.block-row.search-flash {
+  background: var(--accent-softer);
+  transition: background 0.5s ease;
+}
