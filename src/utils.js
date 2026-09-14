@@ -221,6 +221,7 @@ export const CALLOUT_EMOJI = ["\uD83D\uDCA1", "\uD83D\uDCCC", "\u26A0\uFE0F", "\
 /* ------------------------------------------------------------------------- */
 
 const REVISEIQ_CLIPBOARD_MIME = "application/x-reviseiq-notes+json";
+const REVISEIQ_CLIPBOARD_WEB_MIME = "web " + REVISEIQ_CLIPBOARD_MIME;
 const REVISEIQ_CLIPBOARD_TEXT_MARKER = "\u2063REViseIQ-NOTES-v1\u2063";
 
 function clipboardInline(value) {
@@ -358,9 +359,7 @@ function clipboardRow(block) {
 }
 
 function buildReviseIqClipboardHtml(page) {
-  const payload = JSON.stringify({ version: 1, kind: "reviseiq-notes", title: page.title || "", blocks: page.blocks || [] });
-  const encoded = escapeHtml(payload);
-  return '<div data-reviseiq-clipboard="1" data-reviseiq-version="1" data-reviseiq-payload="' + encoded + '" style="font-family:Arial,Helvetica,sans-serif;line-height:1.45;">' +
+  return '<div data-reviseiq-clipboard="1" data-reviseiq-version="1" style="font-family:Arial,Helvetica,sans-serif;line-height:1.45;">' +
     '<h1 style="font-size:24px;margin:0 0 16px 0;">' + escapeHtml(page.title || "Untitled") + "</h1>" +
     clipboardRows(page.blocks) +
     "</div>";
@@ -380,8 +379,6 @@ function cloneClipboardBlock(block) {
     if (value && typeof value === "object") {
       if (Object.prototype.hasOwnProperty.call(value, "id")) value.id = uid();
       Object.keys(value).forEach((key) => reId(value[key]));
-    } else if (Array.isArray(value)) {
-      value.forEach(reId);
     }
   };
   reId(copy);
@@ -555,7 +552,7 @@ function installClipboardRoundTrip() {
           const text = REVISEIQ_CLIPBOARD_TEXT_MARKER + clipboardPlainTextFromHtml(html);
           const payload = JSON.stringify({ version: 1, kind: "reviseiq-notes", title: page.title || "", blocks: page.blocks || [] });
           const item = new ClipboardItem({
-            [REVISEIQ_CLIPBOARD_MIME]: new Blob([payload], { type: REVISEIQ_CLIPBOARD_MIME }),
+            [REVISEIQ_CLIPBOARD_WEB_MIME]: new Blob([payload], { type: REVISEIQ_CLIPBOARD_MIME }),
             "text/html": new Blob([html], { type: "text/html" }),
             "text/plain": new Blob([text], { type: "text/plain" })
           });
@@ -571,7 +568,9 @@ function installClipboardRoundTrip() {
       const target = event.target && event.target.closest ? event.target.closest(".rt") : null;
       if (!target || !event.clipboardData) return;
 
-      const custom = event.clipboardData.getData(REVISEIQ_CLIPBOARD_MIME);
+      const custom =
+        event.clipboardData.getData(REVISEIQ_CLIPBOARD_WEB_MIME) ||
+        event.clipboardData.getData(REVISEIQ_CLIPBOARD_MIME);
       const text = event.clipboardData.getData("text/plain") || "";
       const html = event.clipboardData.getData("text/html") || "";
       const marked = text.indexOf(REVISEIQ_CLIPBOARD_TEXT_MARKER) === 0;
