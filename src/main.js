@@ -22,6 +22,7 @@ import { registerServiceWorker, initConnectivityNotices } from "./pwa.js";
 import { initCloud } from "./cloud/index.js";
 import { initSearch } from "./render/search.js";
 import { initOnboarding } from "./onboarding.js";
+import { initLegacyClipboardPaste } from "./legacyClipboard.js";
 
 function boot() {
   // Formatting must come out as <b>/<i>/<u> tags, not styled spans, so it
@@ -60,6 +61,7 @@ function boot() {
   });
   initGlobalDismiss();
   initFlashcardsEvents();
+  initLegacyClipboardPaste();
   initMainEvents();
   initSidebarEvents();
   initMobileEvents();
