@@ -92,6 +92,7 @@ export function renderMain() {
   html += renderFeedbackSection({ pageId: page.id, title: "Exam feedback for this page", limit: 8 });
   paint(root, html);
   renderToc();
+  wireCopyPageButton(page);
 }
 
 /*
@@ -288,6 +289,11 @@ export function renderPageHeader(page) {
     '">' +
     escapeHtml(page.title) +
     "</div>" +
+    '<button class="copy-page-btn" id="copy-page-notes-btn" type="button" data-page-id="' +
+    page.id +
+    '" title="Copy this page’s notes for pasting into Google Docs" aria-label="Copy all notes">' +
+    ui("copy", 16) +
+    "<span>Copy</span></button>" +
     '<button class="page-menu-btn" data-page-menu="' +
     page.id +
     '" title="Page options">' +
@@ -336,4 +342,239 @@ export function renderExamPanel(page) {
   html += '<button class="add-exam-btn" id="add-exam-btn">' + ui("plus", 12, 2.4) + " Add exam date</button>";
   html += "</div></div></div></div>";
   return html;
+}
+
+/*
+ * Build a paste-friendly HTML representation of the current page. This does
+ * not copy editor controls or internal data attributes, and uses semantic
+ * elements so Google Docs recognises headings, lists, quotes and tables.
+ */
+function pageNotesToClipboardHtml(page) {
+  const list = document.getElementById("block-list");
+  if (!list) return "<h1>" + escapeHtml(page.title || "Untitled") + "</h1>";
+
+  const topRows = Array.prototype.slice.call(list.children).filter((el) => el.classList.contains("block-row"));
+  let html = '<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.45;">';
+  html += '<h1 style="font-size:24px;margin:0 0 16px 0;">' + escapeHtml(page.title || "Untitled") + "</h1>";
+  html += exportRows(topRows);
+  html += "</div>";
+  return html;
+}
+
+function exportRows(rows) {
+  let html = "";
+  let i = 0;
+  while (i < rows.length) {
+    const row = rows[i];
+    const type = row.dataset.blockType || "paragraph";
+
+    if (type === "bulleted" || type === "numbered") {
+      const tag = type === "bulleted" ? "ul" : "ol";
+      html += "<" + tag + " style=\"margin:8px 0 8px 24px;padding-left:20px;\">";
+      while (i < rows.length && (rows[i].dataset.blockType || "") === type) {
+        const rt = rows[i].querySelector(".rt");
+        html += "<li>" + (rt ? rt.innerHTML : "") + "</li>";
+        i++;
+      }
+      html += "</" + tag + ">";
+      continue;
+    }
+
+    html += exportRow(row);
+    i++;
+  }
+  return html;
+}
+
+function exportRow(row) {
+  const type = row.dataset.blockType || "paragraph";
+  const content = (el) => (el ? el.innerHTML : "");
+  const rt = row.querySelector(":scope > .block-content > .rt") || row.querySelector(":scope > .block-content .rt");
+
+  if (type === "paragraph") return '<p style="margin:8px 0;">' + content(rt) + "</p>";
+  if (type === "heading1") return '<h2 style="margin:18px 0 8px 0;">' + content(rt) + "</h2>";
+  if (type === "heading2") return '<h3 style="margin:16px 0 7px 0;">' + content(rt) + "</h3>";
+  if (type === "heading3") return '<h4 style="margin:14px 0 6px 0;">' + content(rt) + "</h4>";
+  if (type === "quote") return '<blockquote style="margin:10px 0;padding-left:14px;border-left:3px solid #999;">' + content(rt) + "</blockquote>";
+  if (type === "todo") {
+    const checked = row.querySelector(".todo-check.checked") ? "☑" : "☐";
+    return '<p style="margin:8px 0;">' + checked + " " + content(row.querySelector(".todo-text")) + "</p>";
+  }
+  if (type === "divider") return '<hr style="margin:18px 0;border:0;border-top:1px solid #aaa;" />';
+  if (type === "code") {
+    const area = row.querySelector(".code-area");
+    const lang = row.querySelector("[data-code-lang]");
+    const label = lang && lang.value ? '<div style="font-size:11px;font-weight:600;margin:10px 0 3px 0;">' + escapeHtml(lang.value) + "</div>" : "";
+    return label + '<pre style="margin:6px 0 12px 0;padding:10px;background:#f3f3f3;white-space:pre-wrap;font-family:monospace;">' + escapeHtml(area ? area.value : "") + "</pre>";
+  }
+  if (type === "table") {
+    const source = row.querySelector("table");
+    if (!source) return "";
+    const table = source.cloneNode(true);
+    table.removeAttribute("class");
+    table.querySelectorAll("td,th").forEach((cell) => {
+      cell.removeAttribute("contenteditable");
+      cell.removeAttribute("data-table-cell");
+      cell.removeAttribute("data-r");
+      cell.removeAttribute("data-c");
+      cell.setAttribute("style", "border:1px solid #999;padding:6px;vertical-align:top;");
+    });
+    table.setAttribute("style", "border-collapse:collapse;width:100%;margin:10px 0;");
+    return table.outerHTML;
+  }
+  if (type === "image") {
+    const image = row.querySelector("img");
+    if (!image) return "";
+    const caption = row.querySelector(".b-image-caption");
+    return '<div style="margin:10px 0;">' + image.outerHTML + (caption && caption.textContent.trim() ? '<div style="font-size:12px;font-style:italic;">' + escapeHtml(caption.textContent.trim()) + "</div>" : "") + "</div>";
+  }
+  if (type === "video") return '<p style="margin:8px 0;">YouTube video</p>';
+  if (type === "page") {
+    const title = row.querySelector(".b-page-row .title");
+    return '<p style="margin:8px 0;"><strong>' + escapeHtml(title ? title.textContent : "Subpage") + "</strong></p>";
+  }
+  if (type === "callout") {
+    const wrap = row.querySelector(":scope > .block-content .b-callout-wrap");
+    if (!wrap) return "";
+    const title = wrap.querySelector(":scope > .b-callout-header .rt");
+    const kids = wrap.querySelector(":scope > .callout-children");
+    return '<div style="margin:10px 0;padding:10px 12px;border-left:3px solid #888;background:#f7f7f7;">' +
+      '<p style="margin:0 0 8px 0;"><strong>' + content(title) + "</strong></p>" +
+      (kids ? exportRows(Array.prototype.slice.call(kids.children).filter((el) => el.classList.contains("block-row"))) : "") +
+      "</div>";
+  }
+  if (type === "toggle") {
+    const summary = row.querySelector(":scope > .block-content > .toggle-row .rt");
+    const children = row.querySelector(":scope > .block-content > .toggle-children");
+    return '<h3 style="margin:14px 0 6px 0;">' + content(summary) + "</h3>" +
+      (children ? exportRows(Array.prototype.slice.call(children.children).filter((el) => el.classList.contains("block-row"))) : "");
+  }
+  if (type === "definition") {
+    const term = row.querySelector(".def-term");
+    const meaning = row.querySelector(".def-meaning");
+    const example = row.querySelector(".def-example");
+    return '<p style="margin:10px 0 3px 0;"><strong>' + content(term) + "</strong></p>" +
+      (meaning ? '<p style="margin:3px 0;">' + meaning.innerHTML + "</p>" : "") +
+      (example && example.textContent.trim() ? '<p style="margin:3px 0;font-style:italic;">Example: ' + example.innerHTML + "</p>" : "");
+  }
+  if (type === "comparison") {
+    const labels = Array.prototype.slice.call(row.querySelectorAll(":scope .cmp-label"));
+    const cells = Array.prototype.slice.call(row.querySelectorAll(":scope .cmp-row"));
+    let out = '<table style="border-collapse:collapse;width:100%;margin:10px 0;"><tbody>';
+    if (labels.length) out += "<tr>" + labels.map((el) => '<th style="border:1px solid #999;padding:6px;text-align:left;">' + el.innerHTML + "</th>").join("") + "</tr>";
+    cells.forEach((r) => {
+      const cs = r.querySelectorAll(":scope .cmp-cell");
+      out += "<tr>" + Array.prototype.map.call(cs, (el) => '<td style="border:1px solid #999;padding:6px;vertical-align:top;">' + el.innerHTML + "</td>").join("") + "</tr>";
+    });
+    return out + "</tbody></table>";
+  }
+  if (type === "process") {
+    const steps = Array.prototype.slice.call(row.querySelectorAll(":scope .proc-step"));
+    let out = "<ol style=\"margin:8px 0 8px 24px;padding-left:20px;\">";
+    steps.forEach((step) => {
+      const text = step.querySelector(".proc-text");
+      const why = step.querySelector(".proc-why");
+      out += "<li>" + (text ? text.innerHTML : "") + (why && why.textContent.trim() ? " — " + why.innerHTML : "") + "</li>";
+    });
+    return out + "</ol>";
+  }
+  if (type === "timeline") {
+    const items = Array.prototype.slice.call(row.querySelectorAll(":scope .tl-item"));
+    let out = "";
+    items.forEach((item) => {
+      const date = item.querySelector(".tl-date");
+      const title = item.querySelector(".tl-title");
+      const detail = item.querySelector(".tl-detail");
+      out += '<p style="margin:10px 0 3px 0;"><strong>' + (date ? date.innerHTML : "") + " — " + (title ? title.innerHTML : "") + "</strong></p>";
+      if (detail && detail.textContent.trim()) out += '<p style="margin:3px 0 10px 0;">' + detail.innerHTML + "</p>";
+    });
+    return out;
+  }
+  if (type === "source") {
+    const quote = row.querySelector(".src-quote");
+    const attribution = row.querySelector(".src-attr");
+    const date = row.querySelector(".src-date");
+    const comment = row.querySelector(".src-comment");
+    return '<blockquote style="margin:10px 0;padding-left:14px;border-left:3px solid #999;">' + (quote ? quote.innerHTML : "") +
+      (attribution || date ? '<div style="margin-top:5px;font-size:12px;"><strong>' + (attribution ? attribution.innerHTML : "") + (date && date.textContent.trim() ? ", " + date.innerHTML : "") + "</strong></div>" : "") +
+      (comment && comment.textContent.trim() ? '<div style="margin-top:6px;">' + comment.innerHTML + "</div>" : "") +
+      "</blockquote>";
+  }
+  if (type === "statistic") {
+    const value = row.querySelector(".stat-value");
+    const label = row.querySelector(".stat-label");
+    const context = row.querySelector(".stat-context");
+    return '<p style="margin:10px 0 3px 0;font-size:18px;"><strong>' + (value ? value.innerHTML : "") + "</strong></p>" +
+      (label ? '<p style="margin:3px 0;"><strong>' + label.innerHTML + "</strong></p>" : "") +
+      (context && context.textContent.trim() ? '<p style="margin:3px 0 10px 0;">' + context.innerHTML + "</p>" : "");
+  }
+  return "";
+}
+
+function clipboardPlainTextFromHtml(html) {
+  const temp = document.createElement("div");
+  temp.style.position = "fixed";
+  temp.style.left = "-100000px";
+  temp.style.top = "0";
+  temp.innerHTML = html;
+  document.body.appendChild(temp);
+  const text = temp.innerText || temp.textContent || "";
+  temp.remove();
+  return text.replace(/\u00a0/g, " ").replace(/[ \t]+\n/g, "\n").trim();
+}
+
+async function copyPageNotes(page, button) {
+  const html = pageNotesToClipboardHtml(page);
+  const text = clipboardPlainTextFromHtml(html);
+
+  try {
+    if (navigator.clipboard && window.ClipboardItem) {
+      const item = new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([text], { type: "text/plain" })
+      });
+      await navigator.clipboard.write([item]);
+    } else {
+      const holder = document.createElement("div");
+      holder.contentEditable = "true";
+      holder.style.position = "fixed";
+      holder.style.left = "-100000px";
+      holder.style.top = "0";
+      holder.innerHTML = html;
+      document.body.appendChild(holder);
+      const range = document.createRange();
+      range.selectNodeContents(holder);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      const ok = document.execCommand("copy");
+      selection.removeAllRanges();
+      holder.remove();
+      if (!ok) throw new Error("Copy command failed");
+    }
+
+    const original = button.innerHTML;
+    button.innerHTML = ui("check", 16, 2.8) + "<span>Copied</span>";
+    button.classList.add("is-copied");
+    button.setAttribute("aria-label", "Notes copied");
+    setTimeout(() => {
+      if (!document.body.contains(button)) return;
+      button.innerHTML = original;
+      button.classList.remove("is-copied");
+      button.setAttribute("aria-label", "Copy all notes");
+    }, 1800);
+  } catch (err) {
+    button.classList.add("is-copy-error");
+    button.title = "Couldn’t copy the notes. Try again.";
+    setTimeout(() => {
+      if (document.body.contains(button)) button.classList.remove("is-copy-error");
+    }, 1800);
+  }
+}
+
+function wireCopyPageButton(page) {
+  const button = document.getElementById("copy-page-notes-btn");
+  if (!button || button.dataset.wired === "true") return;
+  button.dataset.wired = "true";
+  button.addEventListener("click", () => copyPageNotes(page, button));
 }
